@@ -38,15 +38,20 @@ Video kondisi pasien adalah risiko utama kapasitas. Mitigasi:
 lib/
   main.dart              titik masuk
   app.dart               MaterialApp, tema, routing awal berdasarkan sesi
-  core/                  tema, konfigurasi, util format tanggal/rupiah
-  models/                model data (User, Pendaftaran, KlinikInfo, Pesan, ...)
-  data/                  Repository (antarmuka), MockRepository, ApiRepository
-  state/                 SessionController (login, peran)
+  core/                  token desain (theme), info klinik tetap, konfigurasi, format tanggal
+  models/                model data (AppUser, Pendaftaran, Slot, MediaSosial, Pesan, ...)
+  data/                  Repository (antarmuka), MockRepository, ApiRepository (menyusul)
+  state/                 Session (masuk, peran)
+  widgets/               komponen demo: Kartu, Tombol, Tag, Pil, header, NavBawah, toast,
+                         KalenderBulan, KartuJadwal, GridMedia
   features/
-    auth/                masuk & daftar akun
-    pasien/              shell + Beranda, Daftar, Janji, Chat, Notifikasi, Info
-    admin/               shell + Ringkas, Pendaftar, Jadwal, Atur
+    auth/                Masuk (tab Pasien/Admin), Daftar Akun
+    pasien/              Beranda, Daftar, Daftar Berobat, Detail, Info, Profil, Notifikasi
+    admin/               Beranda, Pendaftaran (+ detail), Jadwal (slot), Chat, Atur
+    chat/                ChatView bersama pasien & admin
 ```
+
+Tampilan meniru demo desain; lihat token & komponen di docs/SPESIFIKASI.md.
 
 UI hanya bicara ke `Repository`. Saat ini memakai `MockRepository` (data contoh
 di memori) agar tampilan bisa dikembangkan sebelum API siap; nanti cukup diganti

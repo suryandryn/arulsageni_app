@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/config.dart';
 import '../../state/session.dart';
 import '../../widgets/async_view.dart';
-import '../chat/chat_page.dart';
+import '../../widgets/ui.dart';
+import '../chat/chat_view.dart';
 import 'beranda_page.dart';
 import 'info_page.dart';
-import 'janji_page.dart';
 import 'notifikasi_page.dart';
+import 'pendaftaran_page.dart';
+import 'profil_page.dart';
+
+/// Tab aktif pasien: 0 Beranda, 1 Daftar, 2 Chat, 3 Info, 4 Profil.
+/// Dipakai juga oleh halaman lain untuk berpindah tab.
+final tabPasien = ValueNotifier<int>(0);
+
+/// Kembali ke layar utama lalu buka tab [i].
+void bukaTabPasien(BuildContext context, int i) {
+  Navigator.of(context).popUntil((r) => r.isFirst);
+  tabPasien.value = i;
+}
 
 class PasienShell extends StatefulWidget {
   const PasienShell({super.key});
@@ -18,56 +29,66 @@ class PasienShell extends StatefulWidget {
 }
 
 class _PasienShellState extends State<PasienShell> {
-  int _tab = 0;
-
-  void pindahTab(int i) => setState(() => _tab = i);
+  @override
+  void initState() {
+    super.initState();
+    tabPasien.value = 0;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<Session>().user!;
-    final judul = ['Beranda', 'Janji Saya', 'Chat Admin', 'Info'][_tab];
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_tab == 0 ? AppConfig.namaAplikasi : judul),
-        actions: [
-          AsyncView(
-            load: (repo) => repo.notifikasi(user.id),
-            builder: (context, list) {
-              final belum = list.where((n) => !n.dibaca).length;
-              return IconButton(
-                tooltip: 'Notifikasi',
-                icon: Badge(
-                  isLabelVisible: belum > 0,
-                  label: Text('$belum'),
-                  child: const Icon(Icons.notifications_outlined),
-                ),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const NotifikasiPage()),
-                ),
-              );
-            },
+    final uid = context.watch<Session>().user!.id;
+    return ValueListenableBuilder<int>(
+      valueListenable: tabPasien,
+      builder: (context, tab, _) => Scaffold(
+        body: IndexedStack(
+          index: tab,
+          children: [
+            const BerandaPage(),
+            const PendaftaranPage(),
+            Scaffold(
+              appBar: headerApp('Chat Admin', aksi: const [TombolNotif()]),
+              body: ChatView(pasienId: uid, sebagaiAdmin: false, terlihat: tab == 2),
+            ),
+            const InfoPage(),
+            const ProfilPage(),
+          ],
+        ),
+        bottomNavigationBar: AsyncView(
+          load: (repo) => repo.chatBelumDibaca(olehAdmin: false, pasienId: uid),
+          builder: (context, chatBaru) => NavBawah(
+            index: tab,
+            onTap: (i) => tabPasien.value = i,
+            items: [
+              const ItemNav('Beranda', Icons.home_outlined),
+              const ItemNav('Daftar', Icons.assignment_outlined),
+              ItemNav('Chat', Icons.chat_bubble_outline, badge: chatBaru),
+              const ItemNav('Info', Icons.info_outline),
+              const ItemNav('Profil', Icons.person_outline),
+            ],
           ),
-        ],
-      ),
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          BerandaPage(keJanji: () => pindahTab(1)),
-          const JanjiPage(),
-          ChatPage(pasienId: user.id, sebagaiAdmin: false),
-          const InfoPage(),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: pindahTab,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Beranda'),
-          NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note), label: 'Janji'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Chat'),
-          NavigationDestination(icon: Icon(Icons.info_outline), selectedIcon: Icon(Icons.info), label: 'Info'),
-        ],
+        ),
       ),
     );
   }
 }
+
+/// Tombol "Notif" di header; hanya tampil bila ada notifikasi belum dibaca.
+class TombolNotif extends StatelessWidget {
+  const TombolNotif({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = context.watch<Session>().user?.id;
+    if (uid == null) return const SizedBox.shrink();
+    return AsyncView(
+      load: (repo) => repo.notifikasiBelumDibaca(uid),
+      builder: (context, n) => n == 0
+          ? const SizedBox.shrink()
+          : TombolHeader('Notif', badge: n, onTap: () => bukaNotifikasi(context)),
+    );
+  }
+}
+
+void bukaNotifikasi(BuildContext context) =>
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotifikasiPage()));

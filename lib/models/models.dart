@@ -1,97 +1,106 @@
 enum Role { pasien, admin }
 
+/// Status pendaftaran sesuai demo desain.
 enum StatusPendaftaran {
-  menungguVerifikasi('Menunggu verifikasi'),
-  perluDilengkapi('Perlu dilengkapi'),
-  terjadwal('Terjadwal'),
-  tidakDapatDitangani('Tidak dapat ditangani'),
+  menunggu('Menunggu'),
+  dijadwalkan('Dijadwalkan'),
+  ditolak('Ditolak'),
   selesai('Selesai'),
   tidakHadir('Tidak hadir'),
-  dibatalkan('Dibatalkan');
+  batal('Batal');
 
   const StatusPendaftaran(this.label);
   final String label;
-
-  bool get aktif =>
-      this == menungguVerifikasi || this == perluDilengkapi || this == terjadwal;
 }
 
 class AppUser {
   const AppUser({
     required this.id,
     required this.nama,
-    required this.noWa,
+    required this.noHp,
     required this.role,
+    this.aktif = true,
   });
 
   final String id;
   final String nama;
-  final String noWa;
+  final String noHp;
   final Role role;
 
+  /// Akun nonaktif tidak bisa masuk (diatur admin di Data Pasien).
+  final bool aktif;
+
   bool get isAdmin => role == Role.admin;
+
+  AppUser copyWith({bool? aktif}) =>
+      AppUser(id: id, nama: nama, noHp: noHp, role: role, aktif: aktif ?? this.aktif);
 }
 
+/// Satu pendaftaran berobat. Satu akun bisa mendaftarkan beberapa pasien
+/// (mis. anggota keluarga).
 class Pendaftaran {
   const Pendaftaran({
     required this.id,
-    required this.kode,
     required this.userId,
     required this.nama,
-    required this.noWa,
-    required this.kota,
+    required this.umur,
+    required this.alamat,
+    required this.noHp,
     required this.keluhan,
     required this.mediaKondisi,
+    required this.fotoKtp,
     required this.status,
     required this.dibuat,
-    this.fotoKtp,
-    this.jadwal,
-    this.noAntrean,
-    this.catatanAdmin,
+    this.tanggal,
+    this.jam,
+    this.alasan,
   });
 
   final String id;
-  final String kode;
   final String userId;
   final String nama;
-  final String noWa;
-  final String kota;
+  final int umur;
+  final String alamat;
+  final String noHp;
   final String keluhan;
 
-  /// Path lokal / URL foto & video kondisi pasien (hanya untuk admin).
+  /// Path lokal / URL foto & video kondisi (hanya admin & pemilik).
   final List<String> mediaKondisi;
 
-  /// Path lokal / URL foto KTP dengan NIK ditutup (hanya untuk admin).
-  final String? fotoKtp;
+  /// Path lokal / URL foto KTP dengan NIK ditutup (hanya admin).
+  final String fotoKtp;
 
   final StatusPendaftaran status;
   final DateTime dibuat;
-  final DateTime? jadwal;
-  final int? noAntrean;
-  final String? catatanAdmin;
+
+  /// Tanggal berobat (tanpa jam) dan slot jam "08.00".
+  final DateTime? tanggal;
+  final String? jam;
+
+  /// Alasan bila ditolak (dikirim ke pasien).
+  final String? alasan;
 
   Pendaftaran copyWith({
     StatusPendaftaran? status,
-    DateTime? jadwal,
-    int? noAntrean,
-    String? catatanAdmin,
-    bool hapusJadwal = false,
+    DateTime? tanggal,
+    String? jam,
+    String? alasan,
   }) {
     return Pendaftaran(
       id: id,
-      kode: kode,
       userId: userId,
       nama: nama,
-      noWa: noWa,
-      kota: kota,
+      umur: umur,
+      alamat: alamat,
+      noHp: noHp,
       keluhan: keluhan,
       mediaKondisi: mediaKondisi,
       fotoKtp: fotoKtp,
       dibuat: dibuat,
       status: status ?? this.status,
-      jadwal: hapusJadwal ? null : (jadwal ?? this.jadwal),
-      noAntrean: hapusJadwal ? null : (noAntrean ?? this.noAntrean),
-      catatanAdmin: catatanAdmin ?? this.catatanAdmin,
+      tanggal: tanggal ?? this.tanggal,
+      jam: jam ?? this.jam,
+      alasan: alasan ?? this.alasan,
     );
   }
 }
@@ -100,108 +109,60 @@ class FormPendaftaran {
   const FormPendaftaran({
     required this.userId,
     required this.nama,
-    required this.noWa,
-    required this.kota,
+    required this.umur,
+    required this.noHp,
+    required this.alamat,
     required this.keluhan,
     required this.mediaKondisi,
-    this.fotoKtp,
+    required this.fotoKtp,
   });
 
   final String userId;
   final String nama;
-  final String noWa;
-  final String kota;
+  final int umur;
+  final String noHp;
+  final String alamat;
   final String keluhan;
   final List<String> mediaKondisi;
-  final String? fotoKtp;
+  final String fotoKtp;
+}
+
+/// Slot jam pada satu tanggal, dengan kuota sendiri.
+class Slot {
+  const Slot({
+    required this.tanggal,
+    required this.jam,
+    required this.kuota,
+    required this.aktif,
+    required this.terisi,
+  });
+
+  final DateTime tanggal;
+  final String jam;
+  final int kuota;
+  final bool aktif;
+  final int terisi;
+
+  int get sisa => (kuota - terisi).clamp(0, kuota);
 }
 
 class MediaSosial {
-  const MediaSosial({required this.platform, required this.nama, required this.url});
+  const MediaSosial({required this.platform, required this.nama, required this.url, this.aktif = true});
+
   final String platform;
   final String nama;
   final String url;
+  final bool aktif;
+
+  MediaSosial copyWith({String? platform, String? nama, String? url, bool? aktif}) => MediaSosial(
+        platform: platform ?? this.platform,
+        nama: nama ?? this.nama,
+        url: url ?? this.url,
+        aktif: aktif ?? this.aktif,
+      );
 }
 
-class KlinikInfo {
-  const KlinikInfo({
-    required this.nama,
-    required this.pemilik,
-    required this.alamat,
-    required this.mapsUrl,
-    required this.waAdmin,
-    required this.estimasiBiaya,
-    required this.mediaSosial,
-    required this.website,
-  });
-
-  final String nama;
-  final String pemilik;
-  final String alamat;
-  final String mapsUrl;
-  final String waAdmin;
-  final List<String> estimasiBiaya;
-  final List<MediaSosial> mediaSosial;
-  final String website;
-
-  KlinikInfo copyWith({
-    String? alamat,
-    String? mapsUrl,
-    String? waAdmin,
-    List<String>? estimasiBiaya,
-  }) {
-    return KlinikInfo(
-      nama: nama,
-      pemilik: pemilik,
-      alamat: alamat ?? this.alamat,
-      mapsUrl: mapsUrl ?? this.mapsUrl,
-      waAdmin: waAdmin ?? this.waAdmin,
-      estimasiBiaya: estimasiBiaya ?? this.estimasiBiaya,
-      mediaSosial: mediaSosial,
-      website: website,
-    );
-  }
-}
-
-class PengaturanJadwal {
-  const PengaturanJadwal({
-    required this.kuotaPerHari,
-    required this.hariPraktik,
-    required this.slotJam,
-    required this.periodeAkhir,
-    required this.tanggalKhusus,
-  });
-
-  final int kuotaPerHari;
-
-  /// DateTime.weekday (1 = Senin ... 7 = Minggu).
-  final Set<int> hariPraktik;
-
-  /// Pilihan jam janji, format "HH:mm".
-  final List<String> slotJam;
-
-  /// Batas akhir periode jadwal yang dibuka.
-  final DateTime periodeAkhir;
-
-  /// Kuota khusus per tanggal; nilai 0 = libur.
-  final Map<DateTime, int> tanggalKhusus;
-
-  PengaturanJadwal copyWith({
-    int? kuotaPerHari,
-    Set<int>? hariPraktik,
-    List<String>? slotJam,
-    DateTime? periodeAkhir,
-    Map<DateTime, int>? tanggalKhusus,
-  }) {
-    return PengaturanJadwal(
-      kuotaPerHari: kuotaPerHari ?? this.kuotaPerHari,
-      hariPraktik: hariPraktik ?? this.hariPraktik,
-      slotJam: slotJam ?? this.slotJam,
-      periodeAkhir: periodeAkhir ?? this.periodeAkhir,
-      tanggalKhusus: tanggalKhusus ?? this.tanggalKhusus,
-    );
-  }
-}
+const platformMedsos = ['YouTube', 'Facebook', 'TikTok', 'Instagram', 'Snack Video'];
 
 class Pesan {
   const Pesan({
@@ -210,21 +171,24 @@ class Pesan {
     required this.dariAdmin,
     required this.isi,
     required this.waktu,
+    this.dibaca = false,
   });
 
   final String id;
 
-  /// Percakapan selalu antara satu pasien dan admin klinik.
+  /// Percakapan selalu antara satu akun pasien dan admin klinik.
   final String pasienId;
   final bool dariAdmin;
   final String isi;
   final DateTime waktu;
+  final bool dibaca;
 }
 
 class Percakapan {
-  const Percakapan({required this.pasien, required this.terakhir});
+  const Percakapan({required this.pasien, required this.terakhir, required this.belumDibaca});
   final AppUser pasien;
   final Pesan terakhir;
+  final int belumDibaca;
 }
 
 class Notifikasi {
@@ -248,13 +212,17 @@ class Notifikasi {
 class RingkasAdmin {
   const RingkasAdmin({
     required this.menunggu,
-    required this.jadwalBesok,
-    required this.totalTerdaftar,
-    required this.chatTerbaru,
+    required this.hariBerikut,
+    required this.jadwalHariBerikut,
+    required this.sisaKuota30Hari,
+    required this.chatBelumDibaca,
   });
 
   final int menunggu;
-  final int jadwalBesok;
-  final int totalTerdaftar;
-  final List<Percakapan> chatTerbaru;
+
+  /// Hari praktik berikutnya (bukan Minggu).
+  final DateTime hariBerikut;
+  final int jadwalHariBerikut;
+  final int sisaKuota30Hari;
+  final int chatBelumDibaca;
 }

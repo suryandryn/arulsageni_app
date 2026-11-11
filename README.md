@@ -29,13 +29,15 @@ terhubung ke server. Akun demo:
 
 | Peran | Login | Kata sandi |
 |---|---|---|
-| Pasien | `081234567890` | `123456` |
-| Admin | `admin` | `admin123` |
+| Pasien | `0812-3456-7890` | `123456` |
+| Admin | `admin` | `123456` |
+
+(Di mode demo, kolom masuk sudah terisi.)
 
 ## Status
-- [x] Struktur proyek, tema hijau-putih, navigasi pasien & admin
+- [x] Tampilan & alur mengikuti demo desain (hijau `#2F5D3A`, emas, krem; font Lora + Plus Jakarta Sans)
 - [x] Semua layar pasien & admin dengan data contoh
-- [x] Logika kuota, nomor antrean, tanggal libur, periode jadwal (teruji)
+- [x] Jadwal berbasis slot jam + kuota, kalender sisa kuota, slot massal (teruji)
 - [ ] API Laravel di hosting + `ApiRepository`
 - [ ] Notifikasi push (FCM) & pengingat lokal
 - [ ] Kompresi video sebelum upload

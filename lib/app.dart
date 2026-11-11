@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
-import 'core/config.dart';
+import 'core/klinik.dart';
 import 'core/theme.dart';
 import 'data/mock_repository.dart';
 import 'data/repository.dart';
 import 'features/admin/admin_shell.dart';
-import 'features/auth/login_screen.dart';
+import 'features/auth/masuk_page.dart';
 import 'features/pasien/pasien_shell.dart';
 import 'state/session.dart';
 
@@ -26,7 +26,7 @@ class PadepokanApp extends StatelessWidget {
         ChangeNotifierProvider<Session>(create: (ctx) => Session(ctx.read<Repository>())),
       ],
       child: MaterialApp(
-        title: AppConfig.namaAplikasi,
+        title: Klinik.nama,
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
         locale: const Locale('id'),
@@ -45,7 +45,7 @@ class _Gerbang extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<Session>().user;
-    if (user == null) return const LoginScreen();
+    if (user == null) return const MasukPage();
     return user.isAdmin ? const AdminShell() : const PasienShell();
   }
 }

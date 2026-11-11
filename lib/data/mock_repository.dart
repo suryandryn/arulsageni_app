@@ -1,432 +1,480 @@
 import '../core/format.dart';
+import '../core/klinik.dart';
 import '../models/models.dart';
+import '../widgets/media.dart' show adalahVideo;
 import 'repository.dart';
 
-/// Data contoh di memori. Hilang saat aplikasi ditutup.
+/// Data contoh di memori, sama dengan isi demo desain. Hilang saat aplikasi ditutup.
 ///
 /// Akun demo:
-/// - Admin  : `admin` / `admin123`
-/// - Pasien : `081234567890` / `123456`
+/// - Pasien : `0812-3456-7890` / `123456`
+/// - Admin  : `admin` / `123456`
 class MockRepository extends Repository {
   MockRepository({DateTime Function()? now}) : _now = now ?? DateTime.now {
     _seed();
   }
 
+  static const jamAwal = ['08.00', '10.00', '13.00', '15.00'];
+
   final DateTime Function() _now;
   final _users = <AppUser>[];
-  final _password = <String, String>{}; // userId -> password
-  final _pendaftaran = <Pendaftaran>[];
+  final _sandi = <String, String>{}; // userId -> sandi
+  final _daftar = <Pendaftaran>[];
+  final _slot = <(DateTime, String), ({int kuota, bool aktif})>{};
   final _pesan = <Pesan>[];
   final _notif = <Notifikasi>[];
-  late KlinikInfo _klinik;
-  late PengaturanJadwal _pengaturan;
-  int _seq = 1000;
+  var _medsos = <MediaSosial>[];
+  int _seq = 200;
 
   String _id() => '${_seq++}';
-  Future<void> _jeda() => Future<void>.delayed(const Duration(milliseconds: 200));
-
+  Future<void> _jeda() => Future<void>.delayed(const Duration(milliseconds: 150));
   void _ubah() => notifyListeners();
 
-  // ---------------------------------------------------------------- seed
+  DateTime get _hariIni => tanggalSaja(_now());
+  DateTime _hr(int n) => DateTime(_hariIni.year, _hariIni.month, _hariIni.day + n);
 
-  void _seed() {
-    _klinik = const KlinikInfo(
-      nama: 'Padepokan Arul Sageni',
-      pemilik: 'Kang Arul Sageni',
-      alamat: 'Kp. Curug Rendeng RT 13 RW 04, Subang, Jawa Barat 41281',
-      mapsUrl: 'https://maps.google.com/?q=Curug+Rendeng+Subang',
-      waAdmin: '089522033857',
-      estimasiBiaya: [
-        'Pendaftaran Rp10.000, bayar di tempat.',
-        'Pengobatan seikhlasnya untuk Kang Arul Sageni.',
-        'Obat & vitamin Rp600.000 untuk segala macam penyakit medis/non-medis (6 produk).',
-        'Semua biaya dibayar di tempat saat pengobatan.',
-      ],
-      mediaSosial: [
-        MediaSosial(platform: 'YouTube', nama: 'PAGADEN PROJECT', url: 'https://youtube.com/@pagadenprojects'),
-        MediaSosial(platform: 'Facebook', nama: 'PAGADEN PROJECT', url: 'https://www.facebook.com/share/1F7NfuC6So/'),
-        MediaSosial(platform: 'TikTok', nama: 'PAGADEN PROJECT', url: 'https://www.tiktok.com/@pagaden_project'),
-        MediaSosial(platform: 'TikTok', nama: 'KANG ARUL SAGENI', url: 'https://www.tiktok.com/@kang_arul_sageni'),
-        MediaSosial(platform: 'Instagram', nama: 'RULZ_357', url: 'https://www.instagram.com/rulz_357'),
-        MediaSosial(platform: 'Snack Video', nama: 'PAGADEN PROJECT', url: 'https://s.snackvideo.com/u/@Pagaden_Project/lvdG7xjf'),
-      ],
-      website: 'https://pengobatankangarulsageni.com',
-    );
-
-    final hariIni = tanggalSaja(_now());
-    _pengaturan = PengaturanJadwal(
-      kuotaPerHari: 30,
-      hariPraktik: {1, 2, 3, 4, 5, 6},
-      slotJam: const ['08:00', '09:00', '10:00', '13:00', '14:00', '15:00'],
-      periodeAkhir: DateTime(hariIni.year + 2, hariIni.month, hariIni.day),
-      tanggalKhusus: {},
-    );
-
-    _users.addAll(const [
-      AppUser(id: '1', nama: 'Admin Padepokan', noWa: '089522033857', role: Role.admin),
-      AppUser(id: '2', nama: 'Budi Santoso', noWa: '081234567890', role: Role.pasien),
-      AppUser(id: '3', nama: 'Siti Aminah', noWa: '085711112222', role: Role.pasien),
-      AppUser(id: '4', nama: 'Dedi Kurniawan', noWa: '087833334444', role: Role.pasien),
-    ]);
-    _password.addAll({'1': 'admin123', '2': '123456', '3': '123456', '4': '123456'});
-
-    var tgl = hariIni.add(const Duration(days: 2));
-    while (!_pengaturan.hariPraktik.contains(tgl.weekday)) {
-      tgl = tgl.add(const Duration(days: 1));
+  /// Hari ke-n dari sekarang, dilewati bila Minggu.
+  DateTime _hariPraktik(int n) {
+    var d = _hr(n);
+    while (d.weekday == DateTime.sunday) {
+      d = DateTime(d.year, d.month, d.day + 1);
     }
-    _pendaftaran.addAll([
-      Pendaftaran(
-        id: _id(), kode: 'PAS-0001', userId: '2', nama: 'Budi Santoso',
-        noWa: '081234567890', kota: 'Subang', keluhan: 'Sakit punggung bawah sejak 3 bulan.',
-        mediaKondisi: const [], status: StatusPendaftaran.terjadwal,
-        dibuat: hariIni.subtract(const Duration(days: 4)),
-        jadwal: gabungJam(tgl, '09:00'), noAntrean: 1,
-      ),
-      Pendaftaran(
-        id: _id(), kode: 'PAS-0002', userId: '3', nama: 'Siti Aminah',
-        noWa: '085711112222', kota: 'Karawang', keluhan: 'Sering pusing dan susah tidur.',
-        mediaKondisi: const [], status: StatusPendaftaran.menungguVerifikasi,
-        dibuat: hariIni.subtract(const Duration(days: 1)),
-      ),
-      Pendaftaran(
-        id: _id(), kode: 'PAS-0003', userId: '4', nama: 'Dedi Kurniawan',
-        noWa: '087833334444', kota: 'Purwakarta', keluhan: 'Benjolan di leher.',
-        mediaKondisi: const [], status: StatusPendaftaran.perluDilengkapi,
-        catatanAdmin: 'Mohon kirim foto benjolan yang lebih jelas.',
-        dibuat: hariIni.subtract(const Duration(days: 2)),
-      ),
-    ]);
-
-    _pesan.addAll([
-      Pesan(id: _id(), pasienId: '2', dariAdmin: false, isi: 'Assalamualaikum, apakah perlu puasa sebelum datang?', waktu: _now().subtract(const Duration(hours: 5))),
-      Pesan(id: _id(), pasienId: '2', dariAdmin: true, isi: 'Waalaikumsalam, tidak perlu. Datang 15 menit sebelum jadwal ya.', waktu: _now().subtract(const Duration(hours: 4))),
-      Pesan(id: _id(), pasienId: '3', dariAdmin: false, isi: 'Kapan pendaftaran saya diperiksa?', waktu: _now().subtract(const Duration(minutes: 30))),
-    ]);
-
-    _notif.add(Notifikasi(
-      id: _id(), userId: '2', judul: 'Jadwal berobat diberikan',
-      isi: 'PAS-0001: ${fmtTanggal(tgl)} pukul 09:00, antrean no. 1.',
-      waktu: hariIni.subtract(const Duration(days: 3)),
-    ));
+    return d;
   }
 
-  // ---------------------------------------------------------------- helper
+  static String _nhp(String s) {
+    final d = s.replaceAll(RegExp(r'\D'), '');
+    if (d.startsWith('62')) return d;
+    if (d.startsWith('0')) return '62${d.substring(1)}';
+    return '62$d';
+  }
 
-  int _cariIndex(String id) {
-    final i = _pendaftaran.indexWhere((p) => p.id == id);
+  // ------------------------------------------------------------------ seed
+
+  void _seed() {
+    _users.addAll(const [
+      AppUser(id: '1', nama: 'Admin', noHp: 'admin', role: Role.admin),
+      AppUser(id: '2', nama: 'Siti Rahmawati', noHp: '0812-3456-7890', role: Role.pasien),
+      AppUser(id: '3', nama: 'Hendra Wijaya', noHp: '0813-1122-3344', role: Role.pasien),
+      AppUser(id: '4', nama: 'Ibu Marni', noHp: '0857-9988-1200', role: Role.pasien),
+      AppUser(id: '5', nama: 'Agus Pratama', noHp: '0821-4455-6677', role: Role.pasien),
+      AppUser(id: '6', nama: 'Pak Slamet', noHp: '0852-7766-5544', role: Role.pasien),
+    ]);
+    for (final u in _users) {
+      _sandi[u.id] = '123456';
+    }
+
+    _medsos = const [
+      MediaSosial(platform: 'YouTube', nama: 'PAGADEN PROJECT', url: 'https://youtube.com/@pagadenprojects?si=cU43qzym_nPpe798'),
+      MediaSosial(platform: 'Facebook', nama: 'PAGADEN PROJECT', url: 'https://www.facebook.com/share/1F7NfuC6So/'),
+      MediaSosial(platform: 'TikTok', nama: 'PAGADEN PROJECT', url: 'https://www.tiktok.com/@pagaden_project?_r=1&_t=ZS-9B5cEG2Ra7g'),
+      MediaSosial(platform: 'TikTok', nama: 'KANG ARUL SAGENI', url: 'https://www.tiktok.com/@kang_arul_sageni?_r=1&_t=ZS-9B5cJNLA78e'),
+      MediaSosial(platform: 'Instagram', nama: 'RULZ_357', url: 'https://www.instagram.com/rulz_357?psln=MWNnamxseWN2bTcyZg=='),
+      MediaSosial(platform: 'Snack Video', nama: 'PAGADEN PROJECT', url: 'https://s.snackvideo.com/u/@Pagaden_Project/lvdG7xjf'),
+    ];
+
+    _isiSlot(_hr(1), _hr(730), {1, 2, 3, 4, 5, 6}, jamAwal, 3);
+
+    const m = ['foto_kondisi.jpg', 'foto_kondisi_2.jpg', 'video_kondisi.mp4'];
+    Pendaftaran p(String id, String uid, String nama, int umur, String alamat, String hp, String keluhan,
+            List<String> kond, StatusPendaftaran st, int dibuat,
+            {DateTime? tgl, String? jam, String? alasan}) =>
+        Pendaftaran(
+          id: id, userId: uid, nama: nama, umur: umur, alamat: alamat, noHp: hp, keluhan: keluhan,
+          mediaKondisi: kond, fotoKtp: 'ktp_${nama.replaceFirst(RegExp(r'^(Ibu|Pak) '), '').split(' ').first.toLowerCase()}.jpg',
+          status: st, dibuat: _hr(dibuat), tanggal: tgl, jam: jam, alasan: alasan,
+        );
+    _daftar.addAll([
+      p('101', '3', 'Hendra Wijaya', 47, 'Kec. Pagaden, Subang', '0813-1122-3344',
+          'Nyeri punggung bawah sudah 3 bulan, sulit duduk lama.', m, StatusPendaftaran.menunggu, -2),
+      p('102', '4', 'Ibu Marni', 58, 'Kab. Garut', '0857-9988-1200', 'Sering pusing dan tensi naik turun.',
+          m.sublist(0, 1), StatusPendaftaran.menunggu, -1),
+      p('103', '5', 'Agus Pratama', 39, 'Kota Bandung', '0821-4455-6677', 'Asam urat kambuh, lutut bengkak.',
+          m, StatusPendaftaran.dijadwalkan, -30, tgl: _hariPraktik(1), jam: '08.00'),
+      p('104', '5', 'Ibu Wati (ibu Agus)', 66, 'Kota Bandung', '0821-4455-6677', 'Gangguan lambung, mual tiap pagi.',
+          m.sublist(1), StatusPendaftaran.dijadwalkan, -28, tgl: _hariPraktik(300), jam: '13.00'),
+      p('100', '2', 'Siti Rahmawati', 42, 'Kec. Jalan Cagak, Subang', '0812-3456-7890',
+          'Sakit kepala menahun dan sulit tidur.', m.sublist(0, 2), StatusPendaftaran.dijadwalkan, -40,
+          tgl: _hariPraktik(14), jam: '10.00'),
+      p('105', '6', 'Pak Slamet', 61, 'Kota Cimahi', '0852-7766-5544', 'Penyakit berat, sudah stadium lanjut.',
+          m.sublist(0, 1), StatusPendaftaran.ditolak, -10,
+          alasan: 'Mohon maaf, berdasarkan foto kondisi, keluhan ini belum dapat kami tangani.'),
+    ]);
+
+    final awal = DateTime(_hariIni.year, _hariIni.month, _hariIni.day - 10, 9, 12);
+    _pesan.addAll([
+      Pesan(id: _id(), pasienId: '3', dariAdmin: false,
+          isi: 'Assalamualaikum, apakah video kondisi saya sudah diterima?', waktu: awal),
+      Pesan(id: _id(), pasienId: '2', dariAdmin: true,
+          isi: 'Selamat datang. Silakan tanya di sini, admin akan membalas.', waktu: awal, dibaca: true),
+    ]);
+  }
+
+  (int, int) _isiSlot(DateTime mulai, DateTime sampai, Set<int> hari, List<String> jam, int kuota) {
+    var baru = 0, ada = 0;
+    for (var d = tanggalSaja(mulai); !d.isAfter(sampai); d = DateTime(d.year, d.month, d.day + 1)) {
+      if (!hari.contains(d.weekday % 7)) continue;
+      for (final j in jam) {
+        if (_slot.containsKey((d, j))) {
+          ada++;
+        } else {
+          _slot[(d, j)] = (kuota: kuota, aktif: true);
+          baru++;
+        }
+      }
+    }
+    return (baru, ada);
+  }
+
+  // ------------------------------------------------------------------ helper
+
+  int _cari(String id) {
+    final i = _daftar.indexWhere((p) => p.id == id);
     if (i < 0) throw RepositoryException('Pendaftaran tidak ditemukan.');
     return i;
   }
 
-  void _notifikasi(String userId, String judul, String isi) {
+  int _terisi(DateTime t, [String? jam]) => _daftar
+      .where((p) => p.status == StatusPendaftaran.dijadwalkan && p.tanggal == t && (jam == null || p.jam == jam))
+      .length;
+
+  void _kirimNotif(String userId, String judul, String isi) {
     _notif.insert(0, Notifikasi(id: _id(), userId: userId, judul: judul, isi: isi, waktu: _now()));
   }
 
-  int _kuota(DateTime tanggal) {
-    final t = tanggalSaja(tanggal);
-    final khusus = _pengaturan.tanggalKhusus[t];
-    if (khusus != null) return khusus;
-    if (!_pengaturan.hariPraktik.contains(t.weekday)) return 0;
-    return _pengaturan.kuotaPerHari;
-  }
+  AppUser _user(String id) => _users.firstWhere((u) => u.id == id);
 
-  List<Pendaftaran> _terjadwalPada(DateTime tanggal) {
-    final t = tanggalSaja(tanggal);
-    return _pendaftaran
-        .where((p) =>
-            p.jadwal != null &&
-            tanggalSaja(p.jadwal!) == t &&
-            (p.status == StatusPendaftaran.terjadwal ||
-                p.status == StatusPendaftaran.selesai ||
-                p.status == StatusPendaftaran.tidakHadir))
-        .toList()
-      ..sort((a, b) => (a.noAntrean ?? 0).compareTo(b.noAntrean ?? 0));
-  }
-
-  String _normalWa(String wa) => wa.replaceAll(RegExp(r'[^0-9]'), '');
-
-  // ---------------------------------------------------------------- auth
+  // ------------------------------------------------------------------ auth
 
   @override
-  Future<AppUser> login(String identitas, String password) async {
+  Future<AppUser> loginPasien(String noHp, String sandi) async {
     await _jeda();
-    final id = identitas.trim().toLowerCase();
-    final user = _users.where((u) {
-      if (u.isAdmin && id == 'admin') return true;
-      return _normalWa(u.noWa) == _normalWa(id) && id.isNotEmpty;
-    }).firstOrNull;
-    if (user == null || _password[user.id] != password) {
-      throw RepositoryException('Nomor WhatsApp atau kata sandi salah.');
+    final u = _users.where((u) => !u.isAdmin && _nhp(u.noHp) == _nhp(noHp)).firstOrNull;
+    if (u == null || _sandi[u.id] != sandi) throw RepositoryException('Nomor HP atau sandi salah.');
+    if (!u.aktif) throw RepositoryException('Akun nonaktif. Hubungi admin lewat WhatsApp.');
+    return u;
+  }
+
+  @override
+  Future<AppUser> loginAdmin(String username, String sandi) async {
+    await _jeda();
+    final u = _users.firstWhere((u) => u.isAdmin);
+    if (username.trim() != 'admin' || _sandi[u.id] != sandi) {
+      throw RepositoryException('Nama pengguna atau sandi salah.');
     }
-    return user;
+    return u;
   }
 
   @override
-  Future<AppUser> register({required String nama, required String noWa, required String password}) async {
+  Future<AppUser> daftarAkun({required String nama, required String noHp, required String sandi}) async {
     await _jeda();
-    if (_users.any((u) => _normalWa(u.noWa) == _normalWa(noWa))) {
-      throw RepositoryException('Nomor WhatsApp sudah terdaftar. Silakan masuk.');
+    if (_nhp(noHp).length < 10) throw RepositoryException('Nomor HP tidak valid. Periksa kembali nomor HP.');
+    if (_users.any((u) => !u.isAdmin && _nhp(u.noHp) == _nhp(noHp))) {
+      throw RepositoryException('Nomor sudah terdaftar. Silakan masuk dengan nomor ini.');
     }
-    final user = AppUser(id: _id(), nama: nama.trim(), noWa: _normalWa(noWa), role: Role.pasien);
-    _users.add(user);
-    _password[user.id] = password;
+    final u = AppUser(id: _id(), nama: nama.trim(), noHp: noHp.trim(), role: Role.pasien);
+    _users.add(u);
+    _sandi[u.id] = sandi;
     _ubah();
-    return user;
+    return u;
   }
 
   @override
-  Future<void> logout() async => _jeda();
-
-  // ---------------------------------------------------------------- klinik
+  Future<void> logout() async {}
 
   @override
-  Future<KlinikInfo> klinik() async => _klinik;
-
-  @override
-  Future<void> simpanKlinik(KlinikInfo info) async {
+  Future<void> ubahSandi(String userId, String sandiBaru) async {
     await _jeda();
-    _klinik = info;
-    _ubah();
+    if (sandiBaru.length < 6) throw RepositoryException('Kata sandi minimal 6 karakter.');
+    _sandi[userId] = sandiBaru;
   }
 
-  @override
-  Future<PengaturanJadwal> pengaturan() async => _pengaturan;
+  // ------------------------------------------------------------------ pendaftaran
+
+  List<Pendaftaran> _urut(Iterable<Pendaftaran> it) =>
+      it.toList()..sort((a, b) => int.parse(b.id).compareTo(int.parse(a.id)));
 
   @override
-  Future<void> simpanPengaturan(PengaturanJadwal pengaturan) async {
+  Future<List<Pendaftaran>> pendaftaranSaya(String userId) async =>
+      _urut(_daftar.where((p) => p.userId == userId));
+
+  @override
+  Future<Pendaftaran?> pendaftaran(String id) async => _daftar.where((p) => p.id == id).firstOrNull;
+
+  @override
+  Future<Pendaftaran> daftarBerobat(FormPendaftaran f) async {
     await _jeda();
-    _pengaturan = pengaturan;
-    _ubah();
-  }
-
-  @override
-  Future<void> perpanjangPeriode(int tahun) async {
-    final a = _pengaturan.periodeAkhir;
-    await simpanPengaturan(_pengaturan.copyWith(periodeAkhir: DateTime(a.year + tahun, a.month, a.day)));
-  }
-
-  // ---------------------------------------------------------------- pasien
-
-  @override
-  Future<List<Pendaftaran>> pendaftaranSaya(String userId) async {
-    await _jeda();
-    return _pendaftaran.where((p) => p.userId == userId).toList()
-      ..sort((a, b) => b.dibuat.compareTo(a.dibuat));
-  }
-
-  @override
-  Future<Pendaftaran?> pendaftaran(String id) async =>
-      _pendaftaran.where((p) => p.id == id).firstOrNull;
-
-  @override
-  Future<Pendaftaran> daftarBerobat(FormPendaftaran form) async {
-    await _jeda();
-    if (form.mediaKondisi.isEmpty) {
-      throw RepositoryException('Foto atau video kondisi pasien wajib dilampirkan.');
-    }
+    final video = f.mediaKondisi.where(adalahVideo).length;
+    final foto = f.mediaKondisi.length - video;
+    if (f.mediaKondisi.isEmpty) throw RepositoryException('Unggah minimal 1 foto/video kondisi.');
+    if (foto > 5 || video > 1) throw RepositoryException('Maks. 5 foto dan 1 video.');
     final p = Pendaftaran(
-      id: _id(),
-      kode: 'PAS-${(_pendaftaran.length + 1).toString().padLeft(4, '0')}',
-      userId: form.userId,
-      nama: form.nama,
-      noWa: _normalWa(form.noWa),
-      kota: form.kota,
-      keluhan: form.keluhan,
-      mediaKondisi: form.mediaKondisi,
-      fotoKtp: form.fotoKtp,
-      status: StatusPendaftaran.menungguVerifikasi,
-      dibuat: _now(),
+      id: _id(), userId: f.userId, nama: f.nama.trim(), umur: f.umur, alamat: f.alamat.trim(),
+      noHp: f.noHp.trim(), keluhan: f.keluhan.trim(), mediaKondisi: f.mediaKondisi, fotoKtp: f.fotoKtp,
+      status: StatusPendaftaran.menunggu, dibuat: _hariIni,
     );
-    _pendaftaran.add(p);
-    _notifikasi(form.userId, 'Pendaftaran diterima', '${p.kode} sedang menunggu verifikasi admin.');
+    _daftar.add(p);
     _ubah();
     return p;
   }
 
   @override
-  Future<void> lengkapiData(String id, String keterangan) async {
-    await _jeda();
-    final i = _cariIndex(id);
-    _pendaftaran[i] = _pendaftaran[i].copyWith(
-      status: StatusPendaftaran.menungguVerifikasi,
-      catatanAdmin: 'Pasien melengkapi: $keterangan',
-    );
-    _ubah();
+  Future<List<Pendaftaran>> semuaPendaftaran({StatusPendaftaran? status, String cari = ''}) async {
+    final q = cari.trim().toLowerCase();
+    return _urut(_daftar.where((p) =>
+        (status == null || p.status == status) &&
+        (q.isEmpty || '${p.nama} ${p.noHp}'.toLowerCase().contains(q))));
   }
 
   @override
-  Future<void> ajukanJadwalUlang(String id, String alasan) async {
+  Future<void> jadwalkan(String id, DateTime tanggal, String jam) async {
     await _jeda();
-    final i = _cariIndex(id);
-    _pendaftaran[i] = _pendaftaran[i].copyWith(
-      status: StatusPendaftaran.menungguVerifikasi,
-      catatanAdmin: 'Pasien mengajukan jadwal ulang: $alasan',
-      hapusJadwal: true,
-    );
-    _ubah();
-  }
-
-  @override
-  Future<void> batalkan(String id) async {
-    await _jeda();
-    final i = _cariIndex(id);
-    _pendaftaran[i] = _pendaftaran[i].copyWith(status: StatusPendaftaran.dibatalkan, hapusJadwal: true);
-    _ubah();
-  }
-
-  // ---------------------------------------------------------------- admin
-
-  @override
-  Future<List<Pendaftaran>> semuaPendaftaran({StatusPendaftaran? status}) async {
-    await _jeda();
-    return _pendaftaran.where((p) => status == null || p.status == status).toList()
-      ..sort((a, b) => b.dibuat.compareTo(a.dibuat));
-  }
-
-  @override
-  Future<void> jadwalkan(String id, DateTime waktu) async {
-    await _jeda();
-    final terisi = _terjadwalPada(waktu).where((p) => p.id != id).toList();
-    if (terisi.length >= _kuota(waktu)) {
-      throw RepositoryException('Kuota tanggal ${fmtTanggalPendek(waktu)} sudah penuh.');
+    final t = tanggalSaja(tanggal);
+    final i = _cari(id);
+    final x = _daftar[i];
+    final s = _slot[(t, jam)];
+    final sama = x.status == StatusPendaftaran.dijadwalkan && x.tanggal == t && x.jam == jam;
+    if (s == null || !s.aktif || (!sama && s.kuota - _terisi(t, jam) < 1)) {
+      throw RepositoryException('Kuota penuh. Pilih jam lain.');
     }
-    final antrean = terisi.fold<int>(0, (m, p) => (p.noAntrean ?? 0) > m ? p.noAntrean! : m) + 1;
-    final i = _cariIndex(id);
-    final p = _pendaftaran[i].copyWith(status: StatusPendaftaran.terjadwal, jadwal: waktu, noAntrean: antrean);
-    _pendaftaran[i] = p;
-    _notifikasi(p.userId, 'Jadwal berobat diberikan',
-        '${p.kode}: ${fmtTanggal(waktu)} pukul ${fmtJam(waktu)}, antrean no. $antrean.');
+    final pindah = x.status == StatusPendaftaran.dijadwalkan;
+    _daftar[i] = x.copyWith(status: StatusPendaftaran.dijadwalkan, tanggal: t, jam: jam);
+    _kirimNotif(x.userId, pindah ? 'Jadwal berobat diubah' : 'Jadwal berobat Anda',
+        '${x.nama}: ${fmtTanggal(t)} pukul $jam WIB di ${Klinik.nama}.');
     _ubah();
   }
 
   @override
-  Future<void> mintaLengkapi(String id, String catatan) async {
+  Future<void> tolak(String id, String alasan) async {
     await _jeda();
-    final i = _cariIndex(id);
-    final p = _pendaftaran[i].copyWith(status: StatusPendaftaran.perluDilengkapi, catatanAdmin: catatan);
-    _pendaftaran[i] = p;
-    _notifikasi(p.userId, 'Data perlu dilengkapi', '${p.kode}: $catatan');
+    if (alasan.trim().isEmpty) throw RepositoryException('Tulis alasan penolakan untuk pasien.');
+    final i = _cari(id);
+    _daftar[i] = _daftar[i].copyWith(status: StatusPendaftaran.ditolak, alasan: alasan.trim());
+    _kirimNotif(_daftar[i].userId, 'Hasil pemeriksaan pendaftaran', alasan.trim());
     _ubah();
   }
 
   @override
-  Future<void> tolak(String id, String catatan) async {
+  Future<void> ubahStatus(String id, StatusPendaftaran status) async {
     await _jeda();
-    final i = _cariIndex(id);
-    final p = _pendaftaran[i].copyWith(
-        status: StatusPendaftaran.tidakDapatDitangani, catatanAdmin: catatan, hapusJadwal: true);
-    _pendaftaran[i] = p;
-    _notifikasi(p.userId, 'Pendaftaran tidak dapat ditangani', '${p.kode}: $catatan');
-    _ubah();
-  }
-
-  @override
-  Future<void> tandaiSelesai(String id) async {
-    await _jeda();
-    final i = _cariIndex(id);
-    _pendaftaran[i] = _pendaftaran[i].copyWith(status: StatusPendaftaran.selesai);
-    _ubah();
-  }
-
-  @override
-  Future<void> tandaiTidakHadir(String id) async {
-    await _jeda();
-    final i = _cariIndex(id);
-    _pendaftaran[i] = _pendaftaran[i].copyWith(status: StatusPendaftaran.tidakHadir);
+    final i = _cari(id);
+    _daftar[i] = _daftar[i].copyWith(status: status);
     _ubah();
   }
 
   @override
   Future<void> kirimPengingat(String id) async {
-    await _jeda();
-    final p = _pendaftaran[_cariIndex(id)];
-    if (p.jadwal == null) return;
-    _notifikasi(p.userId, 'Pengingat jadwal berobat',
-        '${fmtTanggal(p.jadwal!)} pukul ${fmtJam(p.jadwal!)}, antrean no. ${p.noAntrean}.');
+    final x = _daftar[_cari(id)];
+    if (x.tanggal == null) return;
+    _kirimNotif(x.userId, 'Pengingat jadwal berobat', '${fmtTanggal(x.tanggal!)} pukul ${x.jam} WIB di ${Klinik.nama}.');
     _ubah();
   }
 
-  // ---------------------------------------------------------------- jadwal
+  // ------------------------------------------------------------------ slot
 
   @override
-  Future<List<Pendaftaran>> jadwalPada(DateTime tanggal) async {
-    await _jeda();
-    return _terjadwalPada(tanggal);
+  Future<Map<DateTime, int>> sisaKuotaPerTanggal() async {
+    final m = <DateTime, int>{};
+    _slot.forEach((k, s) {
+      if (s.aktif) m[k.$1] = (m[k.$1] ?? 0) + s.kuota;
+    });
+    for (final p in _daftar) {
+      if (p.status == StatusPendaftaran.dijadwalkan && m.containsKey(p.tanggal)) {
+        m[p.tanggal!] = m[p.tanggal!]! - 1;
+      }
+    }
+    return m;
   }
 
   @override
-  Future<int> kuotaPada(DateTime tanggal) async => _kuota(tanggal);
+  Future<List<Slot>> slotPada(DateTime tanggal) async {
+    final t = tanggalSaja(tanggal);
+    final list = [
+      for (final e in _slot.entries)
+        if (e.key.$1 == t)
+          Slot(tanggal: t, jam: e.key.$2, kuota: e.value.kuota, aktif: e.value.aktif, terisi: _terisi(t, e.key.$2)),
+    ];
+    return list..sort((a, b) => a.jam.compareTo(b.jam));
+  }
 
   @override
-  Future<Set<DateTime>> tanggalTersedia() async {
-    final hasil = <DateTime>{};
-    var t = tanggalSaja(_now());
-    final akhir = tanggalSaja(_pengaturan.periodeAkhir);
-    while (!t.isAfter(akhir)) {
-      final kuota = _kuota(t);
-      if (kuota > 0 && _terjadwalPada(t).length < kuota) hasil.add(t);
-      t = DateTime(t.year, t.month, t.day + 1);
+  Future<void> tambahSlot(DateTime tanggal, String jam, int kuota) async {
+    final j = normalJam(jam);
+    if (j == null || kuota < 1) throw RepositoryException('Isi jam seperti 09.00 dan kuota minimal 1.');
+    final k = (tanggalSaja(tanggal), j);
+    if (_slot.containsKey(k)) throw RepositoryException('Jam $j sudah ada di tanggal ini.');
+    _slot[k] = (kuota: kuota, aktif: true);
+    _ubah();
+  }
+
+  @override
+  Future<void> ubahKuotaSlot(DateTime tanggal, String jam, int kuota) async {
+    final t = tanggalSaja(tanggal);
+    final s = _slot[(t, jam)];
+    if (s == null) return;
+    final min = _terisi(t, jam).clamp(1, 1 << 30);
+    if (kuota < min) throw RepositoryException('Kuota tidak boleh di bawah jumlah pasien terjadwal.');
+    _slot[(t, jam)] = (kuota: kuota, aktif: s.aktif);
+    _ubah();
+  }
+
+  @override
+  Future<void> aturSlotAktif(DateTime tanggal, String jam, bool aktif) async {
+    final k = (tanggalSaja(tanggal), jam);
+    final s = _slot[k];
+    if (s == null) return;
+    _slot[k] = (kuota: s.kuota, aktif: aktif);
+    _ubah();
+  }
+
+  @override
+  Future<void> hapusSlot(DateTime tanggal, String jam) async {
+    final t = tanggalSaja(tanggal);
+    if (_terisi(t, jam) > 0) throw RepositoryException('Slot berisi pasien, nonaktifkan saja.');
+    _slot.remove((t, jam));
+    _ubah();
+  }
+
+  @override
+  Future<(int, int)> buatSlotMassal({
+    required DateTime mulai,
+    required DateTime sampai,
+    required Set<int> hari,
+    required List<String> jam,
+    required int kuota,
+  }) async {
+    await _jeda();
+    final a = tanggalSaja(mulai), b = tanggalSaja(sampai);
+    if (b.isBefore(a)) throw RepositoryException('Periksa tanggal mulai dan sampai.');
+    if (b.isAfter(DateTime(a.year, a.month, a.day + 730))) {
+      throw RepositoryException('Maksimal 24 bulan per sekali buat, ulangi untuk periode berikutnya.');
     }
+    final j = jam.map(normalJam).whereType<String>().toList();
+    if (hari.isEmpty || j.isEmpty || kuota < 1) {
+      throw RepositoryException('Pilih hari, isi jam (contoh 08.00), dan kuota.');
+    }
+    final hasil = _isiSlot(a, b, hari, j, kuota);
+    _ubah();
     return hasil;
   }
 
-  // ---------------------------------------------------------------- chat
+  // ------------------------------------------------------------------ chat
 
   @override
   Future<List<Pesan>> pesan(String pasienId) async =>
-      _pesan.where((m) => m.pasienId == pasienId).toList()
-        ..sort((a, b) => a.waktu.compareTo(b.waktu));
+      _pesan.where((m) => m.pasienId == pasienId).toList()..sort((a, b) => a.waktu.compareTo(b.waktu));
 
   @override
   Future<void> kirimPesan(String pasienId, String isi, {required bool dariAdmin}) async {
-    _pesan.add(Pesan(id: _id(), pasienId: pasienId, dariAdmin: dariAdmin, isi: isi.trim(), waktu: _now()));
-    if (dariAdmin) _notifikasi(pasienId, 'Pesan dari admin', isi.trim());
+    final t = isi.trim();
+    if (t.isEmpty) return;
+    _pesan.add(Pesan(id: _id(), pasienId: pasienId, dariAdmin: dariAdmin, isi: t, waktu: _now()));
+    if (dariAdmin) _kirimNotif(pasienId, 'Pesan dari admin', t.length > 120 ? t.substring(0, 120) : t);
     _ubah();
   }
+
+  @override
+  Future<void> tandaiChatDibaca(String pasienId, {required bool olehAdmin}) async {
+    var ubah = false;
+    for (var i = 0; i < _pesan.length; i++) {
+      final m = _pesan[i];
+      // Pesan dari pihak lain yang belum dibaca.
+      if (m.pasienId == pasienId && m.dariAdmin != olehAdmin && !m.dibaca) {
+        _pesan[i] = Pesan(id: m.id, pasienId: m.pasienId, dariAdmin: m.dariAdmin, isi: m.isi, waktu: m.waktu, dibaca: true);
+        ubah = true;
+      }
+    }
+    if (ubah) _ubah();
+  }
+
+  @override
+  Future<int> chatBelumDibaca({required bool olehAdmin, String? pasienId}) async => _pesan
+      .where((m) => !m.dibaca && m.dariAdmin != olehAdmin && (pasienId == null || m.pasienId == pasienId))
+      .length;
 
   @override
   Future<List<Percakapan>> percakapan() async {
     final terakhir = <String, Pesan>{};
     for (final m in _pesan) {
-      final ada = terakhir[m.pasienId];
-      if (ada == null || m.waktu.isAfter(ada.waktu)) terakhir[m.pasienId] = m;
+      final a = terakhir[m.pasienId];
+      if (a == null || !m.waktu.isBefore(a.waktu)) terakhir[m.pasienId] = m;
     }
-    final hasil = terakhir.entries
-        .map((e) => Percakapan(pasien: _users.firstWhere((u) => u.id == e.key), terakhir: e.value))
-        .toList()
-      ..sort((a, b) => b.terakhir.waktu.compareTo(a.terakhir.waktu));
-    return hasil;
+    return [
+      for (final e in terakhir.entries)
+        Percakapan(
+          pasien: _user(e.key),
+          terakhir: e.value,
+          belumDibaca: _pesan.where((m) => m.pasienId == e.key && !m.dariAdmin && !m.dibaca).length,
+        ),
+    ]..sort((a, b) => b.terakhir.waktu.compareTo(a.terakhir.waktu));
   }
 
-  // ---------------------------------------------------------------- notifikasi
+  // ------------------------------------------------------------------ notifikasi
 
   @override
-  Future<List<Notifikasi>> notifikasi(String userId) async =>
-      _notif.where((n) => n.userId == userId).toList();
+  Future<List<Notifikasi>> notifikasi(String userId) async => _notif.where((n) => n.userId == userId).toList();
+
+  @override
+  Future<int> notifikasiBelumDibaca(String userId) async =>
+      _notif.where((n) => n.userId == userId && !n.dibaca).length;
 
   @override
   Future<void> tandaiNotifikasiDibaca(String userId) async {
-    var berubah = false;
+    var ubah = false;
     for (var i = 0; i < _notif.length; i++) {
       final n = _notif[i];
       if (n.userId == userId && !n.dibaca) {
         _notif[i] = Notifikasi(id: n.id, userId: n.userId, judul: n.judul, isi: n.isi, waktu: n.waktu, dibaca: true);
-        berubah = true;
+        ubah = true;
       }
     }
-    if (berubah) _ubah();
+    if (ubah) _ubah();
   }
 
-  // ---------------------------------------------------------------- ringkas
+  // ------------------------------------------------------------------ admin
 
   @override
   Future<RingkasAdmin> ringkas() async {
-    final besok = tanggalSaja(_now()).add(const Duration(days: 1));
+    final sisa = await sisaKuotaPerTanggal();
+    final besok = _hariPraktik(1);
+    var s30 = 0;
+    for (var i = 1; i <= 30; i++) {
+      final v = sisa[_hr(i)] ?? 0;
+      if (v > 0) s30 += v;
+    }
     return RingkasAdmin(
-      menunggu: _pendaftaran.where((p) => p.status == StatusPendaftaran.menungguVerifikasi).length,
-      jadwalBesok: _terjadwalPada(besok).where((p) => p.status == StatusPendaftaran.terjadwal).length,
-      totalTerdaftar: _users.where((u) => u.role == Role.pasien).length,
-      chatTerbaru: (await percakapan()).take(5).toList(),
+      menunggu: _daftar.where((p) => p.status == StatusPendaftaran.menunggu).length,
+      hariBerikut: besok,
+      jadwalHariBerikut: _terisi(besok),
+      sisaKuota30Hari: s30,
+      chatBelumDibaca: await chatBelumDibaca(olehAdmin: true),
     );
+  }
+
+  @override
+  Future<List<AppUser>> akunPasien() async => _users.where((u) => !u.isAdmin).toList();
+
+  @override
+  Future<void> resetSandi(String userId) async {
+    _sandi[userId] = '123456';
+  }
+
+  @override
+  Future<void> aturAkunAktif(String userId, bool aktif) async {
+    final i = _users.indexWhere((u) => u.id == userId);
+    if (i >= 0) _users[i] = _users[i].copyWith(aktif: aktif);
+    _ubah();
+  }
+
+  @override
+  Future<List<MediaSosial>> mediaSosial() async => List.of(_medsos);
+
+  @override
+  Future<void> simpanMediaSosial(List<MediaSosial> daftar) async {
+    for (final s in daftar) {
+      if (!RegExp(r'^https://\S+$').hasMatch(s.url)) throw RepositoryException('URL wajib diawali https://');
+    }
+    _medsos = List.of(daftar);
+    _ubah();
   }
 }

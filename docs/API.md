@@ -1,63 +1,61 @@
 # Rancangan API (Laravel) — v1
 
+Mengikuti kontrak `lib/data/repository.dart` (alur demo desain).
+
 Base URL: `https://arulsageni.com/api/v1`
 Auth: header `Authorization: Bearer <token>` (Laravel Sanctum).
 Format: JSON; upload memakai `multipart/form-data`.
-Peran: `pasien`, `admin`.
+Peran: `pasien`, `admin`. Tanggal `YYYY-MM-DD`, jam `HH.mm` (mis. `08.00`).
 
-## Auth
+## Auth & akun
 | Method | Endpoint | Peran | Keterangan |
 |---|---|---|---|
-| POST | `/auth/register` | publik | nama, no_wa, password |
-| POST | `/auth/login` | publik | no_wa/email + password → token + user |
-| POST | `/auth/logout` | semua | cabut token |
-| GET | `/me` | semua | profil |
+| POST | `/auth/daftar` | publik | nama, no_hp, sandi → token + user |
+| POST | `/auth/masuk` | publik | no_hp + sandi → token + user (akun nonaktif ditolak) |
+| POST | `/auth/masuk-admin` | publik | username + sandi |
+| POST | `/auth/keluar` | semua | cabut token |
+| PUT | `/me/sandi` | semua | sandi_baru (min. 6) |
 | POST | `/me/device-token` | semua | simpan token FCM |
 
 ## Pasien
 | Method | Endpoint | Keterangan |
 |---|---|---|
-| GET | `/klinik` | info klinik, biaya, medsos (publik) |
-| GET | `/pendaftaran` | daftar milik pasien |
-| POST | `/pendaftaran` | multipart: nama, no_wa, kota, keluhan, `media_kondisi[]`, `foto_ktp` |
-| GET | `/pendaftaran/{id}` | detail |
-| POST | `/pendaftaran/{id}/lengkapi` | kirim ulang data yang diminta |
-| POST | `/pendaftaran/{id}/jadwal-ulang` | alasan |
-| POST | `/pendaftaran/{id}/batal` | |
-| GET | `/notifikasi` | |
-| GET | `/chat?after={id}` | pesan dengan admin (polling) |
-| POST | `/chat` | teks |
+| GET | `/media-sosial` | tautan aktif (publik) |
+| GET | `/pendaftaran` | milik akun |
+| POST | `/pendaftaran` | multipart: nama, umur, no_hp, alamat, keluhan, `kondisi[]` (≤5 foto ≤5 MB, ≤1 video ≤30 MB), `ktp` |
+| GET | `/pendaftaran/{id}` | detail (hanya pemilik) |
+| GET | `/notifikasi` · POST `/notifikasi/dibaca` | |
+| GET | `/chat?after={id}` · POST `/chat` · POST `/chat/dibaca` | polling saat layar chat terbuka |
 
 ## Admin
 | Method | Endpoint | Keterangan |
 |---|---|---|
-| GET | `/admin/ringkas` | jumlah menunggu, jadwal besok, total, chat terbaru |
-| GET | `/admin/pendaftar?status=` | |
-| GET | `/admin/pendaftar/{id}` | detail + URL media bertanda tangan |
-| GET | `/admin/media/{id}` | stream file (cek peran admin) |
-| POST | `/admin/pendaftar/{id}/jadwalkan` | tanggal, jam → nomor antrean otomatis + push |
-| POST | `/admin/pendaftar/{id}/minta-lengkapi` | catatan |
-| POST | `/admin/pendaftar/{id}/tolak` | catatan → status `tidak_dapat_ditangani` |
-| POST | `/admin/pendaftar/{id}/selesai` | |
-| POST | `/admin/pendaftar/{id}/tidak-hadir` | |
-| POST | `/admin/pendaftar/{id}/ingatkan` | kirim push pengingat |
-| GET | `/admin/jadwal?tanggal=` | daftar pasien + kuota terisi |
-| GET | `/admin/kalender?bulan=` | ketersediaan per tanggal (sisa kuota/libur) |
-| GET/PUT | `/admin/pengaturan` | info klinik, kuota, hari & jam praktik, slot jam, periode |
-| POST | `/admin/periode/perpanjang` | tahun: 1 atau 2 |
-| GET/POST/DELETE | `/admin/tanggal-khusus` | kuota khusus / libur |
-| GET | `/admin/chat` | daftar percakapan |
-| GET/POST | `/admin/chat/{userId}` | |
+| GET | `/admin/ringkas` | menunggu, jadwal hari praktik berikutnya, sisa kuota 30 hari, chat belum dibaca |
+| GET | `/admin/pendaftaran?status=&q=` | cari nama / nomor HP |
+| GET | `/admin/pendaftaran/{id}` | detail + URL media bertanda tangan (kedaluwarsa singkat) |
+| POST | `/admin/pendaftaran/{id}/jadwalkan` | tanggal, jam → cek kuota slot (transaksi + lock) → push ke pasien |
+| POST | `/admin/pendaftaran/{id}/tolak` | alasan (wajib) → push |
+| POST | `/admin/pendaftaran/{id}/status` | `selesai` / `tidak_hadir` / `batal` |
+| POST | `/admin/pendaftaran/{id}/ingatkan` | push pengingat |
+| GET | `/admin/kalender?dari=&sampai=` | sisa kuota per tanggal (slot aktif) |
+| GET | `/admin/slot?tanggal=` | slot + terisi |
+| POST | `/admin/slot` | tanggal, jam, kuota |
+| PATCH | `/admin/slot` | tanggal, jam, kuota? / aktif? (kuota ≥ terisi) |
+| DELETE | `/admin/slot?tanggal=&jam=` | ditolak bila berisi pasien |
+| POST | `/admin/slot/massal` | mulai, sampai (≤ 730 hari), hari[] (0=Min), jam[], kuota → {baru, sudah_ada} |
+| GET | `/admin/chat` · GET/POST `/admin/chat/{userId}` | |
+| GET | `/admin/pasien` · POST `/admin/pasien/{id}/reset-sandi` · PATCH `/admin/pasien/{id}` (aktif) | |
+| GET/PUT | `/admin/media-sosial` | simpan seluruh daftar (urutan, aktif); URL wajib `https://` |
 
 ## Tabel (MySQL)
-- `users` (id, nama, no_wa, email, password, role, fcm_token)
-- `pendaftaran` (id, user_id, kode, nama, no_wa, kota, keluhan, status, catatan_admin, tanggal, jam, no_antrean, timestamps)
-- `media` (id, pendaftaran_id, jenis[kondisi_foto|kondisi_video|ktp], path, ukuran)
-- `pesan` (id, user_id, dari_admin, isi, dibaca_at, created_at)
-- `notifikasi` (id, user_id, judul, isi, data, dibaca_at, created_at)
-- `pengaturan` (key, value JSON) — info klinik, kuota default, hari/jam praktik, slot, periode_akhir
-- `tanggal_khusus` (tanggal, libur, kuota)
+- `users` (id, nama, no_hp, password, role, aktif, fcm_token, timestamps)
+- `pendaftaran` (id, user_id, nama, umur, alamat, no_hp, keluhan, status[menunggu|dijadwalkan|ditolak|selesai|tidak_hadir|batal], tanggal, jam, alasan, timestamps)
+- `media` (id, pendaftaran_id, jenis[kondisi|ktp], path, mime, ukuran)
+- `slot` (tanggal, jam, kuota, aktif) — PK (tanggal, jam)
+- `pesan` (id, pasien_id, dari_admin, isi, dibaca_at, created_at)
+- `notifikasi` (id, user_id, judul, isi, dibaca_at, created_at)
+- `media_sosial` (id, platform, nama, url, aktif, urutan)
 
 ## Cron (cPanel)
-- Tiap jam: kirim pengingat H-1 dan hari H.
-- Harian: hapus media pendaftaran yang sudah selesai/ditolak > N hari.
+- Tiap jam: push pengingat H-1 untuk pendaftaran `dijadwalkan`.
+- Harian: hapus media pendaftaran yang sudah selesai/ditolak/batal > N hari (hemat ruang 250 MB).

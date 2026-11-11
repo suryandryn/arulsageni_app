@@ -13,17 +13,22 @@ class Session extends ChangeNotifier {
 
   AppUser? get user => _user;
 
-  Future<void> login(String identitas, String password) async {
-    _user = await _repo.login(identitas, password);
+  Future<void> masukPasien(String noHp, String sandi) async {
+    _user = await _repo.loginPasien(noHp, sandi);
     notifyListeners();
   }
 
-  Future<void> register({required String nama, required String noWa, required String password}) async {
-    _user = await _repo.register(nama: nama, noWa: noWa, password: password);
+  Future<void> masukAdmin(String username, String sandi) async {
+    _user = await _repo.loginAdmin(username, sandi);
     notifyListeners();
   }
 
-  Future<void> logout() async {
+  Future<void> daftarAkun({required String nama, required String noHp, required String sandi}) async {
+    _user = await _repo.daftarAkun(nama: nama, noHp: noHp, sandi: sandi);
+    notifyListeners();
+  }
+
+  Future<void> keluar() async {
     await _repo.logout();
     _user = null;
     notifyListeners();

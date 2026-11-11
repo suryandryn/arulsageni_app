@@ -10,58 +10,69 @@ import '../models/models.dart';
 ///
 /// Memanggil `notifyListeners()` setiap kali data berubah agar layar memuat ulang.
 abstract class Repository extends ChangeNotifier {
-  // Auth
-  Future<AppUser> login(String identitas, String password);
-  Future<AppUser> register({
-    required String nama,
-    required String noWa,
-    required String password,
-  });
+  // ---- Auth & akun
+  Future<AppUser> loginPasien(String noHp, String sandi);
+  Future<AppUser> loginAdmin(String username, String sandi);
+  Future<AppUser> daftarAkun({required String nama, required String noHp, required String sandi});
   Future<void> logout();
+  Future<void> ubahSandi(String userId, String sandiBaru);
 
-  // Info klinik & pengaturan
-  Future<KlinikInfo> klinik();
-  Future<void> simpanKlinik(KlinikInfo info);
-  Future<PengaturanJadwal> pengaturan();
-  Future<void> simpanPengaturan(PengaturanJadwal pengaturan);
-  Future<void> perpanjangPeriode(int tahun);
-
-  // Pendaftaran (pasien)
+  // ---- Pendaftaran (pasien)
   Future<List<Pendaftaran>> pendaftaranSaya(String userId);
   Future<Pendaftaran?> pendaftaran(String id);
   Future<Pendaftaran> daftarBerobat(FormPendaftaran form);
-  Future<void> lengkapiData(String id, String keterangan);
-  Future<void> ajukanJadwalUlang(String id, String alasan);
-  Future<void> batalkan(String id);
 
-  // Pendaftaran (admin)
-  Future<List<Pendaftaran>> semuaPendaftaran({StatusPendaftaran? status});
-  Future<void> jadwalkan(String id, DateTime waktu);
-  Future<void> mintaLengkapi(String id, String catatan);
-  Future<void> tolak(String id, String catatan);
-  Future<void> tandaiSelesai(String id);
-  Future<void> tandaiTidakHadir(String id);
+  // ---- Pendaftaran (admin)
+  Future<List<Pendaftaran>> semuaPendaftaran({StatusPendaftaran? status, String cari = ''});
+
+  /// Beri atau pindah jadwal; kirim notifikasi ke pasien.
+  Future<void> jadwalkan(String id, DateTime tanggal, String jam);
+
+  /// Tolak dengan alasan (wajib, dikirim ke pasien).
+  Future<void> tolak(String id, String alasan);
+
+  /// Selesai / Tidak hadir / Batal untuk pendaftaran yang dijadwalkan.
+  Future<void> ubahStatus(String id, StatusPendaftaran status);
   Future<void> kirimPengingat(String id);
 
-  // Jadwal
-  Future<List<Pendaftaran>> jadwalPada(DateTime tanggal);
-  Future<int> kuotaPada(DateTime tanggal);
+  // ---- Slot jadwal
+  /// Sisa kuota per tanggal (hanya tanggal yang punya slot aktif).
+  Future<Map<DateTime, int>> sisaKuotaPerTanggal();
+  Future<List<Slot>> slotPada(DateTime tanggal);
+  Future<void> tambahSlot(DateTime tanggal, String jam, int kuota);
+  Future<void> ubahKuotaSlot(DateTime tanggal, String jam, int kuota);
+  Future<void> aturSlotAktif(DateTime tanggal, String jam, bool aktif);
+  Future<void> hapusSlot(DateTime tanggal, String jam);
 
-  /// Tanggal (tanpa jam) yang masih bisa dipilih: hari praktik, bukan libur,
-  /// di dalam periode, dan kuota belum penuh.
-  Future<Set<DateTime>> tanggalTersedia();
+  /// Buat slot untuk rentang tanggal; slot yang sudah ada dilewati.
+  /// Mengembalikan (jumlah baru, jumlah sudah ada).
+  Future<(int, int)> buatSlotMassal({
+    required DateTime mulai,
+    required DateTime sampai,
+    required Set<int> hari, // DateTime.weekday % 7 (Minggu = 0)
+    required List<String> jam,
+    required int kuota,
+  });
 
-  // Chat
+  // ---- Chat
   Future<List<Pesan>> pesan(String pasienId);
   Future<void> kirimPesan(String pasienId, String isi, {required bool dariAdmin});
+  Future<void> tandaiChatDibaca(String pasienId, {required bool olehAdmin});
+  Future<int> chatBelumDibaca({required bool olehAdmin, String? pasienId});
   Future<List<Percakapan>> percakapan();
 
-  // Notifikasi
+  // ---- Notifikasi
   Future<List<Notifikasi>> notifikasi(String userId);
+  Future<int> notifikasiBelumDibaca(String userId);
   Future<void> tandaiNotifikasiDibaca(String userId);
 
-  // Admin
+  // ---- Admin: data pasien & media sosial
   Future<RingkasAdmin> ringkas();
+  Future<List<AppUser>> akunPasien();
+  Future<void> resetSandi(String userId);
+  Future<void> aturAkunAktif(String userId, bool aktif);
+  Future<List<MediaSosial>> mediaSosial();
+  Future<void> simpanMediaSosial(List<MediaSosial> daftar);
 }
 
 class RepositoryException implements Exception {

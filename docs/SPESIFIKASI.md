@@ -1,8 +1,10 @@
 # Spesifikasi Aplikasi — Padepokan Arul Sageni
 
-Sumber: `reference/Rangkuman-Aplikasi-Android-Konsep-Pengobatan.docx` dan
-`reference/FORM APK (G) CUSTOM.doc`. Dokumen ini adalah ringkasan kerja; bila
-ada perbedaan, dokumen referensi klien yang berlaku.
+Sumber, berurutan dari yang paling berlaku:
+1. **Demo desain** yang disetujui: https://velocity.ai.id/preview/aplikasi-janji-pengobatan-958cad/
+   (tampilan, alur, dan teks mengikuti demo ini)
+2. `reference/Rangkuman-Aplikasi-Android-Konsep-Pengobatan.docx`
+3. `reference/FORM APK (G) CUSTOM.doc`
 
 ## Tujuan
 Aplikasi Android untuk pendaftaran berobat dan janji temu, menggantikan
@@ -16,83 +18,89 @@ terlihat walau pasien ganti HP.
 | Domain | arulsageni.com |
 | Package name | `com.arulsageni.app` |
 | Pemilik | Kang Arul Sageni |
-| Alamat | Kp. Curug Rendeng RT 13 RW 04, Subang, Jawa Barat 41281 |
+| Alamat | RT.013/RW.004, Kampung Curug Rendeng, Kec. Jalan Cagak, Kabupaten Subang, Jawa Barat 41281 |
+| Google Maps | https://maps.app.goo.gl/uvurN77g3fJBCdNa6 |
 | WA admin resmi | 0895 2203 3857 |
-| Warna | Hijau & putih (final menyesuaikan logo) |
+| Website | https://pengobatankangarulsageni.com |
 | Minimum Android | 8.0 (API 26) |
-| Referensi desain | https://velocity.ai.id/preview/aplikasi-janji-pengobatan-958cad/ |
 
-## Peran
-- **Pasien**: daftar akun, daftar berobat, lihat status & jadwal, jadwal ulang /
-  batal, chat admin, lihat info klinik.
-- **Admin klinik**: menilai pendaftar, memberi jadwal, minta data dilengkapi,
-  menolak, chat & WhatsApp pasien, mengatur info klinik dan jadwal praktik.
+## Desain (dari demo)
+| Token | Nilai |
+|---|---|
+| Hijau utama | `#2F5D3A` (ditekan `#244A2E`) |
+| Aksen emas | `#B8892B` |
+| Latar krem | `#F7F3EA`, kartu putih, garis `#E4DDCD` |
+| Teks | `#1F2A22`, redup `#5B665E` |
+| Peringatan | latar `#FFF4D6`, teks `#7A5200` |
+| Merah / OK / WhatsApp | `#B3261E` / `#2E7D4F` / `#25D366` |
+| Font | Judul **Lora** 600/700, isi **Plus Jakarta Sans** 400–700 (dipaketkan di `assets/fonts`) |
+| Bentuk | Kartu sudut 16, tombol sudut 10 tinggi 48, isian sudut 6, pil bulat |
 
-## Status pendaftaran / janji
-```
-menunggu_verifikasi ──▶ perlu_dilengkapi ──▶ (pasien melengkapi) ──▶ menunggu_verifikasi
-        │
-        ├──▶ tidak_dapat_ditangani
-        └──▶ terjadwal ──▶ selesai
-                     ├──▶ tidak_hadir
-                     └──▶ dibatalkan / (jadwal ulang ──▶ menunggu_verifikasi)
-```
+Token ada di `lib/core/theme.dart`; komponen (kartu, tombol, tag, pil, header,
+nav bawah, toast) di `lib/widgets/ui.dart`.
 
-## Formulir Daftar Berobat
-- Nama, nomor WhatsApp, kota, keluhan
-- Foto/video kondisi pasien — **wajib**
-- Foto KTP — dengan peringatan **NIK harus ditutup**
-- Foto KTP & foto/video kondisi hanya bisa dilihat admin
+## Peran & menu
+**Pasien** — nav bawah: Beranda · Daftar · Chat · Info · Profil (+ tombol "Notif" di header bila ada yang baru)
 
-## Menu Pasien
 | Menu | Isi |
 |---|---|
-| Beranda | Janji terdekat + hitung mundur, tombol Daftar Berobat, pintasan alamat & estimasi biaya |
-| Daftar | Formulir pendaftaran |
-| Janji | Daftar pendaftaran/janji + status, detail, jadwal ulang, batal |
+| Masuk | Foto Kang Arul, tab Pasien/Admin, nomor HP + sandi, "Daftar akun" |
+| Beranda | Kartu jadwal terdekat (H-n, Buka Google Maps) + arahan kedatangan, tombol Daftar Berobat, daftar "Pendaftaran saya" |
+| Daftar | Semua pendaftaran akun (satu akun bisa mendaftarkan anggota keluarga) |
+| Detail | Kartu jadwal, data, alasan bila ditolak, foto/video, "Tanya admin lewat chat" |
+| Daftar Berobat | Nama, umur, nomor HP, alamat, keluhan, foto/video kondisi (wajib), foto KTP (wajib) + peringatan & centang "NIK sudah ditutup" |
 | Chat | Chat teks dengan admin |
-| Notifikasi | Jadwal, pengingat, pesan klinik |
-| Info | Foto Kang Arul Sageni, alamat, Google Maps, WA admin, estimasi biaya, media sosial, data pasien, keluar |
+| Info | Foto & alamat, Google Maps, WA admin, estimasi biaya, website, media sosial |
+| Profil | Data akun, ubah sandi, notifikasi, keluar |
 
-## Menu Admin
+**Admin** — nav bawah: Beranda · Pendaftaran · Jadwal · Chat · Atur
+
 | Menu | Isi |
 |---|---|
-| Ringkas | Jumlah pendaftar menunggu, jadwal besok, total terdaftar, chat terbaru |
-| Pendaftar | Filter status, detail, media, tombol WA & Chat, beri jadwal, minta dilengkapi, tidak dapat ditangani |
-| Jadwal | Jadwal per tanggal + kuota terisi, tandai Selesai / Tidak hadir |
-| Atur | Info klinik, kuota/hari, hari & jam praktik, pilihan jam janji, periode jadwal (perpanjang 1/2 tahun), tanggal khusus/libur |
+| Beranda | Pendaftaran menunggu, jadwal hari praktik berikutnya, sisa kuota 30 hari, chat belum dibaca |
+| Pendaftaran | Cari nama/nomor, filter status; detail: data, media, KTP, WhatsApp & Chat, **Beri/Pindah jadwal** (kalender + jam bersisa kuota), **Tolak** dengan alasan, kirim pengingat, Selesai / Tidak hadir / Batal |
+| Jadwal | Kalender bulanan (sisa kuota per tanggal); per tanggal: slot jam, kuota, aktif/nonaktif, hapus, tambah jam; **buat slot massal** (rentang ≤ 24 bulan, hari praktik, jam, kuota per jam) |
+| Chat | Daftar percakapan + jumlah pesan baru; ruang chat dengan tombol WhatsApp |
+| Atur | Data pasien (reset sandi, aktif/nonaktif), Media sosial (tambah, ubah, urutkan, aktif/nonaktif, hapus), keluar |
 
-## Aturan jadwal
-- Nomor antrean otomatis per tanggal.
-- Tanggal penuh (kuota habis), libur, atau di luar periode tidak bisa dipilih.
-- Periode jadwal dibuka oleh admin (mis. 2 tahun) dan bisa diperpanjang dari aplikasi.
+## Status pendaftaran
+```
+Menunggu ──▶ Dijadwalkan ──▶ Selesai
+   │              ├──▶ Tidak hadir
+   │              └──▶ Batal
+   └──▶ Ditolak (alasan wajib, dikirim ke pasien)
+```
 
-## Estimasi biaya (ditampilkan di aplikasi)
-- Pendaftaran Rp10.000, bayar di tempat
-- Pengobatan seikhlasnya untuk Kang Arul Sageni
-- Obat & vitamin Rp600.000 untuk segala macam penyakit medis/non-medis (6 produk)
-- Semua dibayar di tempat saat pengobatan
+## Aturan jadwal (slot)
+- Jadwal dibuka per **slot = tanggal + jam**, masing-masing dengan kuota.
+- Slot dibuat massal oleh admin (mis. Sen–Sab, 08.00/10.00/13.00/15.00, kuota 3, 2 tahun).
+  Slot yang sudah ada dilewati. Untuk periode berikutnya, ulangi dengan tanggal mulai baru.
+- Tanggal bisa dipilih bila setelah hari ini, punya slot aktif, dan sisa kuota > 0.
+- Kuota slot tidak boleh di bawah jumlah pasien terjadwal; slot berisi tidak bisa dihapus (nonaktifkan saja).
+- Libur = nonaktifkan / hapus slot tanggal itu.
 
-## Media sosial
-| Platform | Nama | Link |
-|---|---|---|
-| YouTube | PAGADEN PROJECT | https://youtube.com/@pagadenprojects |
-| Facebook | PAGADEN PROJECT | https://www.facebook.com/share/1F7NfuC6So/ |
-| TikTok | PAGADEN PROJECT | https://www.tiktok.com/@pagaden_project |
-| TikTok | KANG ARUL SAGENI | https://www.tiktok.com/@kang_arul_sageni |
-| Instagram | RULZ_357 | https://www.instagram.com/rulz_357 |
-| Snack Video | PAGADEN PROJECT | https://s.snackvideo.com/u/@Pagaden_Project/lvdG7xjf |
+## Batas berkas
+Foto jpg/png maks. 5 MB (maks. 5 berkas), video mp4 maks. 30 MB (1 berkas). Foto dikompres di HP.
 
-Website terkait: pengobatankangarulsageni.com (diminta dimasukkan ke aplikasi).
+## Info tetap (diatur saat pembuatan aplikasi)
+Alamat, biaya, nomor admin, website ada di `lib/core/klinik.dart`. Teks estimasi
+biaya dan arahan jadwal ("JAM 04.00 PAGI SUDAH HARUS DI LOKASI ...") persis teks klien.
+
+## Perbedaan demo vs dokumen konsep (keputusan: ikut demo)
+| Konsep (.docx) | Demo / aplikasi |
+|---|---|
+| Status "Perlu dilengkapi" & tombol "Minta dilengkapi" | Tidak ada — admin meminta lewat Chat/WhatsApp |
+| Nomor antrean otomatis | Tidak ditampilkan; kuota per jam |
+| Pasien mengajukan jadwal ulang / membatalkan | Tidak ada di demo — pasien menghubungi admin lewat chat |
+| Admin mengatur alamat/biaya/nomor | Tetap di aplikasi; admin hanya mengatur media sosial |
+| Kuota per hari, periode diperpanjang 1/2 tahun | Kuota per slot jam, slot massal ≤ 24 bulan |
 
 ## Di luar cakupan
 Rekam medis, resep, kasir, BPJS, pembayaran online, pengiriman WhatsApp
-otomatis (tombol WA hanya membuka aplikasi WhatsApp di HP admin).
+otomatis (tombol WA hanya membuka aplikasi WhatsApp).
 
 ## Data yang masih ditunggu dari klien
-- [ ] Logo (PNG, min. 1024×1024)
-- [ ] Alamat lengkap tertulis untuk aplikasi + link Google Maps
-- [ ] Hari & jam praktik, kuota pasien per hari
+- [ ] Logo (PNG, min. 1024×1024) untuk ikon aplikasi
 - [ ] Email akun admin
 - [ ] Deskripsi singkat & lengkap untuk Play Store, kategori aplikasi
 - [ ] Akses cPanel (username) untuk pemasangan API

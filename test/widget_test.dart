@@ -1,4 +1,5 @@
 import 'package:arulsageni/app.dart';
+import 'package:arulsageni/widgets/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -6,41 +7,58 @@ import 'package:intl/date_symbol_data_local.dart';
 void main() {
   setUpAll(() => initializeDateFormatting('id_ID'));
 
-  testWidgets('Layar masuk tampil, pasien demo bisa masuk ke Beranda', (tester) async {
+  Future<void> tunggu(WidgetTester t) async {
+    for (var i = 0; i < 5; i++) {
+      await t.pump(const Duration(milliseconds: 200));
+    }
+  }
+
+  /// Habiskan timer toast (3,8 detik) sebelum tes selesai.
+  Future<void> habiskanToast(WidgetTester t) => t.pump(const Duration(seconds: 5));
+
+  Finder nav(String label) => find.descendant(of: find.byType(NavBawah), matching: find.text(label));
+
+  testWidgets('pasien demo masuk, melihat jadwal, lalu membuka Info', (tester) async {
     await tester.pumpWidget(const PadepokanApp());
     expect(find.text('Padepokan Arul Sageni'), findsOneWidget);
-    expect(find.text('Masuk'), findsWidgets);
+    expect(find.text('Demo: data masuk sudah terisi.'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextFormField).at(0), '081234567890');
-    await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tunggu(tester);
 
-    expect(find.text('Halo, Budi 👋'), findsOneWidget);
-    expect(find.text('Janji berobat terdekat'), findsOneWidget);
+    expect(find.text('Halo, Siti'), findsOneWidget);
+    expect(find.text('Jadwal berobat - Siti Rahmawati'), findsOneWidget);
+    expect(find.text('JADWAL BEROBAT (SITI RAHMAWATI)'), findsOneWidget);
+
+    await tester.tap(nav('Info'));
+    await tunggu(tester);
+    expect(find.text('Buka Google Maps'), findsOneWidget);
   });
 
-  testWidgets('Kata sandi salah menampilkan pesan galat', (tester) async {
+  testWidgets('sandi salah menampilkan pemberitahuan', (tester) async {
     await tester.pumpWidget(const PadepokanApp());
-    await tester.enterText(find.byType(TextFormField).at(0), '081234567890');
-    await tester.enterText(find.byType(TextFormField).at(1), 'salah');
+    await tester.enterText(find.byType(TextField).at(1), 'salah');
     await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tunggu(tester);
 
-    expect(find.text('Nomor WhatsApp atau kata sandi salah.'), findsOneWidget);
+    expect(find.text('Gagal masuk'), findsOneWidget);
+    expect(find.text('Nomor HP atau sandi salah.'), findsOneWidget);
+    await habiskanToast(tester);
   });
 
-  testWidgets('Admin masuk ke menu Ringkas', (tester) async {
+  testWidgets('admin masuk ke Beranda Admin dan membuka Pendaftaran', (tester) async {
     await tester.pumpWidget(const PadepokanApp());
-    await tester.enterText(find.byType(TextFormField).at(0), 'admin');
-    await tester.enterText(find.byType(TextFormField).at(1), 'admin123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Admin'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Masuk Admin'));
+    await tunggu(tester);
 
-    expect(find.text('Admin • Ringkas'), findsOneWidget);
-    expect(find.text('Menunggu verifikasi'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Beranda Admin'), findsOneWidget);
+    expect(find.text('Pendaftaran menunggu'), findsOneWidget);
+
+    await tester.tap(nav('Pendaftaran'));
+    await tunggu(tester);
+    expect(find.text('Hendra Wijaya'), findsOneWidget);
+    expect(find.text('Ibu Marni'), findsOneWidget);
   });
 }

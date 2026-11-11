@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../state/session.dart';
 import '../../widgets/async_view.dart';
+import '../../widgets/ui.dart';
 
 class NotifikasiPage extends StatefulWidget {
   const NotifikasiPage({super.key});
@@ -15,48 +16,40 @@ class NotifikasiPage extends StatefulWidget {
 }
 
 class _NotifikasiPageState extends State<NotifikasiPage> {
-  late final Repository _repo;
-  late final String _userId;
+  late final String _uid = context.read<Session>().user!.id;
 
   @override
   void initState() {
     super.initState();
-    _repo = context.read<Repository>();
-    _userId = context.read<Session>().user!.id;
-  }
-
-  @override
-  void dispose() {
-    // Tandai dibaca saat halaman ditutup agar penanda "baru" masih terlihat.
-    _repo.tandaiNotifikasiDibaca(_userId);
-    super.dispose();
+    // Seperti demo: notifikasi dianggap dibaca saat halaman dibuka.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<Repository>().tandaiNotifikasiDibaca(_uid);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifikasi')),
+      appBar: headerApp('Notifikasi', aksi: [TombolHeader('Kembali', onTap: () => Navigator.pop(context))]),
       body: AsyncView(
-        load: (repo) => repo.notifikasi(_userId),
-        builder: (context, list) {
-          if (list.isEmpty) return const Center(child: Text('Belum ada notifikasi.'));
-          return ListView.separated(
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final n = list[i];
-              return Container(
-                color: n.dibaca ? null : AppColors.hijauMuda,
-                child: ListTile(
-                  leading: const Icon(Icons.notifications, color: AppColors.hijau),
-                  title: Text(n.judul, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('${n.isi}\n${fmtWaktu(n.waktu)}'),
-                  isThreeLine: true,
+        load: (repo) => repo.notifikasi(_uid),
+        builder: (context, list) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (list.isEmpty) const TeksKosong('Belum ada notifikasi.'),
+            for (final n in list)
+              Kartu(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(n.judul, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(n.isi),
+                    Text(fmtWaktu(n.waktu), style: tsCap),
+                  ],
                 ),
-              );
-            },
-          );
-        },
+              ),
+          ],
+        ),
       ),
     );
   }

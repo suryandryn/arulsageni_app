@@ -2,8 +2,6 @@
 class AppConfig {
   AppConfig._();
 
-  static const namaAplikasi = 'Padepokan Arul Sageni';
-
   /// Alamat API Laravel di hosting klien.
   static const apiBaseUrl = 'https://arulsageni.com/api/v1';
 

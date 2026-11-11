@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,197 +6,102 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/session.dart';
 import '../../widgets/async_view.dart';
-import '../../widgets/kontak.dart';
-import '../../widgets/status_chip.dart';
+import '../../widgets/jadwal_card.dart';
+import '../../widgets/ui.dart';
 import 'daftar_berobat_page.dart';
-import 'info_page.dart';
+import 'pasien_shell.dart';
+import 'pendaftaran_page.dart';
 
 class BerandaPage extends StatelessWidget {
-  const BerandaPage({super.key, required this.keJanji});
-
-  final VoidCallback keJanji;
+  const BerandaPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<Session>().user!;
-    return AsyncView(
-      load: (repo) async => (await repo.pendaftaranSaya(user.id), await repo.klinik()),
-      builder: (context, data) {
-        final (daftar, klinik) = data;
-        final terdekat = daftar
-            .where((p) => p.status == StatusPendaftaran.terjadwal && p.jadwal != null)
-            .toList()
-          ..sort((a, b) => a.jadwal!.compareTo(b.jadwal!));
-        final proses = daftar.where((p) =>
-            p.status == StatusPendaftaran.menungguVerifikasi || p.status == StatusPendaftaran.perluDilengkapi);
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text('Halo, ${user.nama.split(' ').first} 👋',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            if (terdekat.isNotEmpty)
-              _KartuJanji(terdekat.first, onTap: keJanji)
-            else
-              const _KartuKosong(),
-            if (proses.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              for (final p in proses)
-                Card(
-                  child: ListTile(
-                    title: Text(p.kode),
-                    subtitle: Text(p.catatanAdmin ?? 'Sedang diperiksa admin.'),
-                    trailing: StatusChip(p.status),
-                    onTap: keJanji,
-                  ),
-                ),
-            ],
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text('Daftar Berobat'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const DaftarBerobatPage()),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _Pintasan(
-                    ikon: Icons.place_outlined,
-                    label: 'Alamat & Maps',
-                    onTap: () => bukaUrl(context, klinik.mapsUrl),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _Pintasan(
-                    ikon: Icons.payments_outlined,
-                    label: 'Estimasi Biaya',
-                    onTap: () => tampilkanBiaya(context, klinik),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _KartuJanji extends StatefulWidget {
-  const _KartuJanji(this.p, {required this.onTap});
-  final Pendaftaran p;
-  final VoidCallback onTap;
-
-  @override
-  State<_KartuJanji> createState() => _KartuJanjiState();
-}
-
-class _KartuJanjiState extends State<_KartuJanji> {
-  late final Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = widget.p;
-    const putih = TextStyle(color: Colors.white);
-    return InkWell(
-      onTap: widget.onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [AppColors.hijau, AppColors.hijauTua]),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Janji berobat terdekat', style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 6),
-            Text(fmtTanggal(p.jadwal!),
-                style: putih.copyWith(fontSize: 18, fontWeight: FontWeight.w700)),
-            Text('Pukul ${fmtJam(p.jadwal!)}  •  Antrean no. ${p.noAntrean}', style: putih),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.timer_outlined, color: Colors.white, size: 16),
-                  const SizedBox(width: 6),
-                  Text(hitungMundur(p.jadwal!), style: putih.copyWith(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text('Kode janji: ${p.kode}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _KartuKosong extends StatelessWidget {
-  const _KartuKosong();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.event_available_outlined, color: AppColors.hijau, size: 36),
-            SizedBox(width: 12),
-            Expanded(child: Text('Belum ada jadwal berobat. Tekan "Daftar Berobat" untuk mendaftar.')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Pintasan extends StatelessWidget {
-  const _Pintasan({required this.ikon, required this.label, required this.onTap});
-  final IconData ikon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Column(
+    return Scaffold(
+      appBar: headerApp('Halo, ${user.nama.split(' ').first}', aksi: const [TombolNotif()]),
+      body: AsyncView(
+        load: (repo) => repo.pendaftaranSaya(user.id),
+        builder: (context, daftar) {
+          final jadwal = daftar.where((p) => p.status == StatusPendaftaran.dijadwalkan).toList()
+            ..sort((a, b) => a.tanggal!.compareTo(b.tanggal!));
+          final terdekat = jadwal.firstOrNull;
+          return ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              Icon(ikon, color: AppColors.hijau, size: 28),
-              const SizedBox(height: 6),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (terdekat != null)
+                KartuJadwal(terdekat)
+              else
+                const Kartu(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      JudulKartu('Belum ada jadwal'),
+                      Text('Kirim pendaftaran berobat. Admin akan memeriksa lalu memberi jadwal.', style: tsMut),
+                    ],
+                  ),
+                ),
+              Tombol(
+                'Daftar Berobat',
+                atas: 0,
+                varian: terdekat != null ? Varian.garis : Varian.primer,
+                onPressed: () => bukaDaftarBerobat(context),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 20, bottom: 8),
+                child: Text('Pendaftaran saya', style: lora(18)),
+              ),
+              if (daftar.isEmpty) const TeksKosong('Belum ada pendaftaran.'),
+              for (final p in daftar) KartuPendaftaranSaya(p),
+              const Kartu(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    JudulKartu('Jadwal tersimpan di akun Anda'),
+                    Text('Jadwal tersimpan di server, bukan hanya di HP. Ganti HP? Cukup masuk lagi.', style: tsMut),
+                  ],
+                ),
+              ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
+
+/// Kartu pendaftaran di Beranda: nama + status, tanggal / tanggal kirim, alasan bila ditolak.
+class KartuPendaftaranSaya extends StatelessWidget {
+  const KartuPendaftaranSaya(this.p, {super.key});
+  final Pendaftaran p;
+
+  @override
+  Widget build(BuildContext context) {
+    return Kartu(
+      onTap: () => bukaDetailPendaftaran(context, p.id),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Baris(
+            kiri: Text(p.nama, style: const TextStyle(fontWeight: FontWeight.w700)),
+            kanan: Tag.status(p.status),
+          ),
+          Text(
+            p.status == StatusPendaftaran.dijadwalkan
+                ? '${fmtPendek(p.tanggal!)} pukul ${p.jam}'
+                : 'Dikirim ${fmtTglBln(p.dibuat)}',
+            style: tsMut,
+          ),
+          if (p.status == StatusPendaftaran.ditolak && p.alasan != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(p.alasan!, style: const TextStyle(fontSize: 14, color: AppColors.red)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+void bukaDaftarBerobat(BuildContext context) =>
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DaftarBerobatPage()));

@@ -1,54 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/format.dart';
+import '../../core/klinik.dart';
+import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
+import '../../state/session.dart';
 import '../../widgets/async_view.dart';
-import '../../widgets/dialogs.dart';
+import '../../widgets/ui.dart';
+import 'admin_shell.dart';
 
 class AturPage extends StatelessWidget {
   const AturPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AsyncView(
-      load: (repo) async => (await repo.klinik(), await repo.pengaturan()),
-      builder: (context, data) {
-        final (klinik, pengaturan) = data;
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _InfoKlinikForm(klinik),
-            const SizedBox(height: 16),
-            _JadwalPraktik(pengaturan),
-            const SizedBox(height: 16),
-            _Periode(pengaturan),
-            const SizedBox(height: 16),
-            _TanggalKhusus(pengaturan),
-          ],
-        );
-      },
+    void buka(Widget w) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => w));
+    return Scaffold(
+      appBar: headerApp('Atur'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Kartu(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                _ItemMenu('Data pasien', () => buka(const DataPasienPage())),
+                _ItemMenu('Media sosial', () => buka(const MediaSosialPage())),
+                _ItemMenu('Kalender & slot jadwal', () => tabAdmin.value = 2, terakhir: true),
+              ],
+            ),
+          ),
+          const Kartu(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                JudulKartu('Profil admin'),
+                Text('admin - ${Klinik.nama}', style: tsMut),
+              ],
+            ),
+          ),
+          const Text('Alamat, biaya, dan nomor admin di menu Info diatur saat pembuatan aplikasi.', style: tsCap),
+          Tombol('Keluar', varian: Varian.merah, onPressed: context.read<Session>().keluar),
+        ],
+      ),
     );
   }
 }
 
-class _Bagian extends StatelessWidget {
-  const _Bagian({required this.judul, required this.children});
-  final String judul;
-  final List<Widget> children;
+/// Baris menu (.mlist a).
+class _ItemMenu extends StatelessWidget {
+  const _ItemMenu(this.label, this.onTap, {this.terakhir = false});
+  final String label;
+  final VoidCallback onTap;
+  final bool terakhir;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          border: terakhir ? null : const Border(bottom: BorderSide(color: AppColors.bd)),
+        ),
+        child: Row(
           children: [
-            Text(judul, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            ...children,
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
+            const Text('›', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -56,263 +75,186 @@ class _Bagian extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------ info klinik
+// ======================================================================= data pasien
 
-class _InfoKlinikForm extends StatefulWidget {
-  const _InfoKlinikForm(this.klinik);
-  final KlinikInfo klinik;
+class DataPasienPage extends StatelessWidget {
+  const DataPasienPage({super.key});
 
   @override
-  State<_InfoKlinikForm> createState() => _InfoKlinikFormState();
+  Widget build(BuildContext context) {
+    final repo = context.read<Repository>();
+    return Scaffold(
+      appBar: headerApp('Data Pasien', aksi: [TombolHeader('Kembali', onTap: () => Navigator.pop(context))]),
+      body: AsyncView(
+        load: (repo) => repo.akunPasien(),
+        builder: (context, list) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final a in list)
+              Kartu(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Baris(
+                      kiri: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(a.nama, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(a.noHp, style: tsMut),
+                        ],
+                      ),
+                      kanan: Tag.aktif(a.aktif),
+                    ),
+                    DeretPil(children: [
+                      Pil('Reset sandi', onTap: () async {
+                        await repo.resetSandi(a.id);
+                        if (context.mounted) {
+                          toast(context, 'Sandi direset', 'Sandi sementara 123456, kirim lewat WhatsApp.');
+                        }
+                      }),
+                      Pil(a.aktif ? 'Nonaktifkan' : 'Aktifkan', onTap: () => repo.aturAkunAktif(a.id, !a.aktif)),
+                    ]),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _InfoKlinikFormState extends State<_InfoKlinikForm> {
-  late final _alamat = TextEditingController(text: widget.klinik.alamat);
-  late final _maps = TextEditingController(text: widget.klinik.mapsUrl);
-  late final _wa = TextEditingController(text: widget.klinik.waAdmin);
-  late final _biaya = TextEditingController(text: widget.klinik.estimasiBiaya.join('\n'));
+// ======================================================================= media sosial
+
+class MediaSosialPage extends StatefulWidget {
+  const MediaSosialPage({super.key});
+
+  @override
+  State<MediaSosialPage> createState() => _MediaSosialPageState();
+}
+
+class _MediaSosialPageState extends State<MediaSosialPage> {
+  int? _ubah; // indeks yang sedang diubah
+  String _platform = platformMedsos.first;
+  final _nama = TextEditingController();
+  final _url = TextEditingController();
 
   @override
   void dispose() {
-    for (final c in [_alamat, _maps, _wa, _biaya]) {
-      c.dispose();
+    _nama.dispose();
+    _url.dispose();
+    super.dispose();
+  }
+
+  /// Mengembalikan `true` bila tersimpan.
+  Future<bool> _simpan(List<MediaSosial> baru, [String? judul, String? isi]) async {
+    try {
+      await context.read<Repository>().simpanMediaSosial(baru);
+      if (judul != null && mounted) toast(context, judul, isi ?? '');
+      return true;
+    } catch (e) {
+      if (mounted) toast(context, 'URL tidak valid', '$e');
+      return false;
     }
-    super.dispose();
   }
+
+  void _mulaiUbah(List<MediaSosial> list, int i) => setState(() {
+        _ubah = i;
+        _platform = list[i].platform;
+        _nama.text = list[i].nama;
+        _url.text = list[i].url;
+      });
+
+  void _kosongkan() => setState(() {
+        _ubah = null;
+        _platform = platformMedsos.first;
+        _nama.clear();
+        _url.clear();
+      });
 
   @override
   Widget build(BuildContext context) {
-    return _Bagian(
-      judul: 'Info Klinik',
-      children: [
-        TextField(controller: _alamat, maxLines: 2, decoration: const InputDecoration(labelText: 'Alamat lengkap')),
-        const SizedBox(height: 10),
-        TextField(controller: _maps, decoration: const InputDecoration(labelText: 'Link Google Maps')),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _wa,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(labelText: 'Nomor WhatsApp admin resmi'),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _biaya,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            labelText: 'Estimasi biaya (satu poin per baris)',
-            alignLabelWithHint: true,
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text('Media sosial dikelola dari server (menyusul).', style: TextStyle(fontSize: 12, color: Colors.black54)),
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: () {
-            final info = widget.klinik.copyWith(
-              alamat: _alamat.text.trim(),
-              mapsUrl: _maps.text.trim(),
-              waAdmin: _wa.text.trim(),
-              estimasiBiaya: _biaya.text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-            );
-            jalankan(context, () => context.read<Repository>().simpanKlinik(info), sukses: 'Info klinik disimpan.');
-          },
-          child: const Text('Simpan Info Klinik'),
-        ),
-      ],
-    );
-  }
-}
-
-// ------------------------------------------------------------ jadwal praktik
-
-class _JadwalPraktik extends StatefulWidget {
-  const _JadwalPraktik(this.p);
-  final PengaturanJadwal p;
-
-  @override
-  State<_JadwalPraktik> createState() => _JadwalPraktikState();
-}
-
-class _JadwalPraktikState extends State<_JadwalPraktik> {
-  late final _kuota = TextEditingController(text: '${widget.p.kuotaPerHari}');
-
-  @override
-  void dispose() {
-    _kuota.dispose();
-    super.dispose();
-  }
-
-  Future<void> _simpan(PengaturanJadwal baru, [String? pesan]) =>
-      jalankan(context, () => context.read<Repository>().simpanPengaturan(baru), sukses: pesan);
-
-  Future<void> _tambahSlot() async {
-    final t = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
-    if (t == null || !mounted) return;
-    final s = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    if (widget.p.slotJam.contains(s)) return;
-    await _simpan(widget.p.copyWith(slotJam: [...widget.p.slotJam, s]..sort()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = widget.p;
-    return _Bagian(
-      judul: 'Jadwal Praktik',
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _kuota,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Kuota pasien per hari'),
+    return Scaffold(
+      appBar: headerApp('Media Sosial', aksi: [TombolHeader('Kembali', onTap: () => Navigator.pop(context))]),
+      body: AsyncView(
+        load: (repo) => repo.mediaSosial(),
+        builder: (context, list) {
+          List<MediaSosial> salin() => List.of(list);
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              for (var i = 0; i < list.length; i++)
+                Kartu(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Baris(
+                        kiri: Text('${list[i].platform}: ${list[i].nama}',
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                        kanan: Tag.aktif(list[i].aktif),
+                      ),
+                      Text(list[i].url, style: tsCap),
+                      DeretPil(children: [
+                        Pil('↑', nonaktif: i == 0, onTap: () {
+                          final l = salin()..insert(i - 1, list[i])..removeAt(i + 1);
+                          _simpan(l);
+                        }),
+                        Pil('↓', nonaktif: i == list.length - 1, onTap: () {
+                          final l = salin()..insert(i + 2, list[i])..removeAt(i);
+                          _simpan(l);
+                        }),
+                        Pil('Ubah', onTap: () => _mulaiUbah(list, i)),
+                        Pil(list[i].aktif ? 'Nonaktifkan' : 'Aktifkan', onTap: () {
+                          final l = salin();
+                          l[i] = l[i].copyWith(aktif: !l[i].aktif);
+                          _simpan(l);
+                        }),
+                        Pil('Hapus', onTap: () async {
+                          if (!await konfirmasi(context, 'Hapus tautan ini?')) return;
+                          if (await _simpan(salin()..removeAt(i))) _kosongkan();
+                        }),
+                      ]),
+                    ],
+                  ),
+                ),
+              Kartu(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    JudulKartu(_ubah != null ? 'Ubah tautan' : 'Tambah tautan'),
+                    const Label('Platform'),
+                    DropdownButtonFormField<String>(
+                      initialValue: _platform,
+                      key: ValueKey(('pl', _ubah, _platform)),
+                      items: [for (final p in platformMedsos) DropdownMenuItem(value: p, child: Text(p))],
+                      onChanged: (v) => _platform = v ?? _platform,
+                    ),
+                    const Label('Nama akun'),
+                    TextField(controller: _nama),
+                    const Label('URL'),
+                    TextField(
+                      controller: _url,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(hintText: 'https://...'),
+                    ),
+                    Tombol(_ubah != null ? 'Simpan Perubahan' : 'Tambah', onPressed: () async {
+                      if (_nama.text.trim().isEmpty) return toast(context, 'Lengkapi', 'Isi nama akun.');
+                      final s = MediaSosial(platform: _platform, nama: _nama.text.trim(), url: _url.text.trim());
+                      final l = salin();
+                      if (_ubah != null) {
+                        l[_ubah!] = s.copyWith(aktif: l[_ubah!].aktif);
+                      } else {
+                        l.add(s);
+                      }
+                      if (await _simpan(l, 'Tersimpan', 'Langsung tampil di menu Info.')) _kosongkan();
+                    }),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-              onPressed: () {
-                final k = int.tryParse(_kuota.text);
-                if (k == null || k < 1) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kuota harus angka ≥ 1.')));
-                  return;
-                }
-                _simpan(p.copyWith(kuotaPerHari: k), 'Kuota disimpan.');
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        const Text('Hari praktik'),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (var d = 1; d <= 7; d++)
-              FilterChip(
-                label: Text(namaHari[d - 1]),
-                selected: p.hariPraktik.contains(d),
-                onSelected: (on) {
-                  final hari = {...p.hariPraktik};
-                  on ? hari.add(d) : hari.remove(d);
-                  _simpan(p.copyWith(hariPraktik: hari));
-                },
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        const Text('Pilihan jam janji'),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final s in p.slotJam)
-              InputChip(
-                label: Text(s),
-                onDeleted: p.slotJam.length <= 1
-                    ? null
-                    : () => _simpan(p.copyWith(slotJam: p.slotJam.where((x) => x != s).toList())),
-              ),
-            ActionChip(avatar: const Icon(Icons.add, size: 18), label: const Text('Tambah'), onPressed: _tambahSlot),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// ------------------------------------------------------------ periode
-
-class _Periode extends StatelessWidget {
-  const _Periode(this.p);
-  final PengaturanJadwal p;
-
-  @override
-  Widget build(BuildContext context) {
-    final repo = context.read<Repository>();
-    final sisaHari = tanggalSaja(p.periodeAkhir).difference(tanggalSaja(DateTime.now())).inDays;
-    return _Bagian(
-      judul: 'Periode Jadwal',
-      children: [
-        Text('Jadwal dibuka sampai ${fmtTanggal(p.periodeAkhir)}'),
-        Text('Sisa $sisaHari hari', style: TextStyle(color: sisaHari < 60 ? Colors.orange.shade800 : Colors.black54)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => jalankan(context, () => repo.perpanjangPeriode(1), sukses: 'Periode diperpanjang 1 tahun.'),
-                child: const Text('+1 tahun'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => jalankan(context, () => repo.perpanjangPeriode(2), sukses: 'Periode diperpanjang 2 tahun.'),
-                child: const Text('+2 tahun'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// ------------------------------------------------------------ tanggal khusus
-
-class _TanggalKhusus extends StatelessWidget {
-  const _TanggalKhusus(this.p);
-  final PengaturanJadwal p;
-
-  Future<void> _tambah(BuildContext context) async {
-    final repo = context.read<Repository>();
-    final t = await showDatePicker(
-      context: context,
-      helpText: 'Pilih tanggal khusus',
-      firstDate: tanggalSaja(DateTime.now()),
-      lastDate: p.periodeAkhir,
-    );
-    if (t == null || !context.mounted) return;
-    final kuotaTeks = await tanyaTeks(context,
-        judul: fmtTanggal(t), label: 'Kuota hari itu (isi 0 untuk LIBUR)', tombol: 'Simpan');
-    final kuota = int.tryParse(kuotaTeks ?? '');
-    if (kuota == null || kuota < 0 || !context.mounted) return;
-    await jalankan(context,
-        () => repo.simpanPengaturan(p.copyWith(tanggalKhusus: {...p.tanggalKhusus, tanggalSaja(t): kuota})));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final repo = context.read<Repository>();
-    final daftar = p.tanggalKhusus.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    return _Bagian(
-      judul: 'Tanggal Khusus / Libur',
-      children: [
-        if (daftar.isEmpty) const Text('Belum ada tanggal khusus.', style: TextStyle(color: Colors.black54)),
-        for (final e in daftar)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(e.value == 0 ? Icons.event_busy : Icons.event_note,
-                color: e.value == 0 ? Colors.red : Colors.orange),
-            title: Text(fmtTanggal(e.key)),
-            subtitle: Text(e.value == 0 ? 'Libur' : 'Kuota ${e.value}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => jalankan(context,
-                  () => repo.simpanPengaturan(p.copyWith(tanggalKhusus: {...p.tanggalKhusus}..remove(e.key)))),
-            ),
-          ),
-        const SizedBox(height: 6),
-        OutlinedButton.icon(
-          icon: const Icon(Icons.add),
-          label: const Text('Tambah tanggal khusus'),
-          onPressed: () => _tambah(context),
-        ),
-      ],
+            ],
+          );
+        },
+      ),
     );
   }
 }

@@ -6,12 +6,13 @@ import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
 import '../../state/session.dart';
-import '../../widgets/media_preview.dart';
+import '../../widgets/media.dart';
+import '../../widgets/ui.dart';
 
 /// Formulir Daftar Berobat.
 ///
-/// Foto dikompres di HP (maks. 1600 px, kualitas 80) dan video dibatasi 30 detik
-/// untuk menghemat ruang hosting (lihat docs/ARSITEKTUR.md).
+/// Batas berkas sesuai demo: foto jpg/png maks. 5 MB (maks. 5), video mp4 maks. 30 MB (1).
+/// Foto dikompres di HP untuk menghemat ruang hosting.
 class DaftarBerobatPage extends StatefulWidget {
   const DaftarBerobatPage({super.key});
 
@@ -20,259 +21,247 @@ class DaftarBerobatPage extends StatefulWidget {
 }
 
 class _DaftarBerobatPageState extends State<DaftarBerobatPage> {
-  static const _maksMedia = 5;
+  static const _maksFoto = 5, _maksVideo = 1;
+  static const _batasFoto = 5 * 1000 * 1000, _batasVideo = 30 * 1000 * 1000;
 
-  final _form = GlobalKey<FormState>();
   final _picker = ImagePicker();
   late final TextEditingController _nama;
-  late final TextEditingController _wa;
-  final _kota = TextEditingController();
+  late final TextEditingController _hp;
+  final _umur = TextEditingController();
+  final _alamat = TextEditingController();
   final _keluhan = TextEditingController();
-  final _media = <String>[];
+  final _kondisi = <String>[];
   String? _ktp;
+  bool _nikDitutup = false;
   bool _proses = false;
-  bool _cobaKirim = false;
 
   @override
   void initState() {
     super.initState();
-    final user = context.read<Session>().user!;
-    _nama = TextEditingController(text: user.nama);
-    _wa = TextEditingController(text: user.noWa);
+    final u = context.read<Session>().user!;
+    _nama = TextEditingController(text: u.nama);
+    _hp = TextEditingController(text: u.noHp);
   }
 
   @override
   void dispose() {
-    for (final c in [_nama, _wa, _kota, _keluhan]) {
+    for (final c in [_nama, _hp, _umur, _alamat, _keluhan]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _tambahMedia(Future<List<XFile>> Function() ambil) async {
-    try {
-      final hasil = await ambil();
-      setState(() {
-        for (final f in hasil) {
-          if (_media.length < _maksMedia) _media.add(f.path);
-        }
-      });
-    } catch (e) {
-      _info('Gagal mengambil media: $e');
+  int get _jmlVideo => _kondisi.where(adalahVideo).length;
+  int get _jmlFoto => _kondisi.length - _jmlVideo;
+
+  Future<void> _tambahBerkas(List<XFile> berkas) async {
+    for (final f in berkas) {
+      final video = adalahVideo(f.path);
+      final ukuran = await f.length();
+      if (!mounted) return;
+      if (video ? _jmlVideo >= _maksVideo : _jmlFoto >= _maksFoto) {
+        return toast(context, 'Terlalu banyak berkas', 'Maks. 5 foto dan 1 video.');
+      }
+      if (ukuran > (video ? _batasVideo : _batasFoto)) {
+        return toast(context, 'Berkas terlalu besar', 'Foto maks. 5 MB, video maks. 30 MB.');
+      }
+      setState(() => _kondisi.add(f.path));
     }
   }
 
-  Future<void> _pilihSumberMedia() async {
+  Future<void> _pilihKondisi() async {
     final pilihan = await showModalBottomSheet<int>(
       context: context,
+      backgroundColor: Colors.white,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(leading: const Icon(Icons.photo_camera), title: const Text('Ambil foto'), onTap: () => Navigator.pop(ctx, 0)),
-            ListTile(leading: const Icon(Icons.videocam), title: const Text('Rekam video (maks. 30 detik)'), onTap: () => Navigator.pop(ctx, 1)),
-            ListTile(leading: const Icon(Icons.photo_library), title: const Text('Pilih dari galeri'), onTap: () => Navigator.pop(ctx, 2)),
+            ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Ambil foto'), onTap: () => Navigator.pop(ctx, 0)),
+            ListTile(leading: const Icon(Icons.videocam_outlined), title: const Text('Rekam video'), onTap: () => Navigator.pop(ctx, 1)),
+            ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Pilih dari galeri'), onTap: () => Navigator.pop(ctx, 2)),
           ],
         ),
       ),
     );
-    switch (pilihan) {
-      case 0:
-        await _tambahMedia(() async {
+    try {
+      switch (pilihan) {
+        case 0:
           final f = await _picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
-          return [?f];
-        });
-      case 1:
-        await _tambahMedia(() async {
-          final f = await _picker.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 30));
-          return [?f];
-        });
-      case 2:
-        await _tambahMedia(() => _picker.pickMultipleMedia(maxWidth: 1600, imageQuality: 80));
+          await _tambahBerkas([?f]);
+        case 1:
+          final f = await _picker.pickVideo(source: ImageSource.camera, maxDuration: const Duration(seconds: 60));
+          await _tambahBerkas([?f]);
+        case 2:
+          await _tambahBerkas(await _picker.pickMultipleMedia(maxWidth: 1600, imageQuality: 80));
+      }
+    } catch (e) {
+      if (mounted) toast(context, 'Gagal mengambil berkas', '$e');
     }
   }
 
   Future<void> _pilihKtp() async {
-    final lanjut = await showDialog<bool>(
+    final sumber = await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 40),
-        title: const Text('Tutup NOMOR NIK'),
-        content: const Text(
-          'Sebelum memfoto KTP, TUTUP nomor NIK dengan kertas atau jari.\n\n'
-          'Ini untuk menjaga keamanan data Anda. Foto KTP hanya dapat dilihat admin klinik.',
+      backgroundColor: Colors.white,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: KotakPeringatan(
+                child: Text.rich(TextSpan(children: [
+                  TextSpan(text: 'Tutup NOMOR NIK', style: TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: ' sebelum memfoto KTP.'),
+                ])),
+              ),
+            ),
+            ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Ambil foto KTP'), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
+            ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Pilih dari galeri'), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('NIK sudah saya tutup')),
-        ],
       ),
     );
-    if (lanjut != true) return;
+    if (sumber == null) return;
     try {
-      final f = await _picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
-      if (f != null) setState(() => _ktp = f.path);
+      final f = await _picker.pickImage(source: sumber, maxWidth: 1600, imageQuality: 80);
+      if (f == null || !mounted) return;
+      if (await f.length() > _batasFoto) {
+        if (mounted) toast(context, 'Berkas terlalu besar', 'Foto maks. 5 MB.');
+        return;
+      }
+      setState(() => _ktp = f.path);
     } catch (e) {
-      _info('Gagal mengambil foto KTP: $e');
+      if (mounted) toast(context, 'Gagal mengambil foto', '$e');
     }
   }
 
   Future<void> _kirim() async {
-    setState(() => _cobaKirim = true);
-    final valid = _form.currentState!.validate();
-    if (!valid || _media.isEmpty) return;
+    final umur = int.tryParse(_umur.text.trim());
+    if ([_nama, _hp, _alamat, _keluhan].any((c) => c.text.trim().isEmpty) || umur == null || umur < 0 || umur > 120) {
+      return toast(context, 'Lengkapi', 'Isi nama, umur, nomor HP, alamat, dan keluhan.');
+    }
+    if (_kondisi.isEmpty) return toast(context, 'Lengkapi', 'Unggah minimal 1 foto/video kondisi.');
+    if (_ktp == null) return toast(context, 'Lengkapi', 'Unggah foto KTP dengan NIK ditutup.');
+    if (!_nikDitutup) return toast(context, 'Lengkapi', 'Centang bahwa NIK pada foto KTP sudah ditutup.');
+
     setState(() => _proses = true);
     try {
-      final p = await context.read<Repository>().daftarBerobat(FormPendaftaran(
+      await context.read<Repository>().daftarBerobat(FormPendaftaran(
             userId: context.read<Session>().user!.id,
-            nama: _nama.text.trim(),
-            noWa: _wa.text.trim(),
-            kota: _kota.text.trim(),
-            keluhan: _keluhan.text.trim(),
-            mediaKondisi: List.of(_media),
-            fotoKtp: _ktp,
+            nama: _nama.text,
+            umur: umur,
+            noHp: _hp.text,
+            alamat: _alamat.text,
+            keluhan: _keluhan.text,
+            mediaKondisi: List.of(_kondisi),
+            fotoKtp: _ktp!,
           ));
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: AppColors.hijau, size: 48),
-          title: const Text('Pendaftaran terkirim'),
-          content: Text('Kode pendaftaran: ${p.kode}\n\n'
-              'Admin akan memeriksa data Anda. Anda akan mendapat notifikasi saat jadwal diberikan.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
-        ),
-      );
-      if (mounted) Navigator.of(context).pop();
+      toast(context, 'Pendaftaran terkirim', 'Admin akan memeriksa lalu memberi jadwal.');
+      Navigator.of(context).pop();
     } catch (e) {
-      _info('$e');
+      if (mounted) toast(context, 'Gagal mengirim', '$e');
     } finally {
       if (mounted) setState(() => _proses = false);
     }
   }
 
-  void _info(String pesan) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pesan)));
-  }
-
   @override
   Widget build(BuildContext context) {
-    final tema = Theme.of(context);
-    String? wajib(String? v) => (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null;
+    final bisaTambah = _jmlFoto < _maksFoto || _jmlVideo < _maksVideo;
     return Scaffold(
-      appBar: AppBar(title: const Text('Daftar Berobat')),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextFormField(controller: _nama, decoration: const InputDecoration(labelText: 'Nama pasien'), validator: wajib),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _wa,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Nomor WhatsApp'),
-              validator: wajib,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(controller: _kota, decoration: const InputDecoration(labelText: 'Kota / Kabupaten'), validator: wajib),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _keluhan,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Keluhan', alignLabelWithHint: true),
-              validator: wajib,
-            ),
-            const SizedBox(height: 20),
-            Text('Foto / video kondisi pasien *', style: tema.textTheme.titleSmall),
-            const SizedBox(height: 4),
-            const Text('Wajib. Maksimal 5 file. Video maksimal 30 detik.', style: TextStyle(fontSize: 12)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final m in _media)
-                  MediaThumb(m, onHapus: () => setState(() => _media.remove(m))),
-                if (_media.length < _maksMedia)
-                  _TombolTambah(label: 'Tambah', onTap: _pilihSumberMedia),
-              ],
-            ),
-            if (_cobaKirim && _media.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('Foto atau video kondisi pasien wajib dilampirkan.',
-                    style: TextStyle(color: tema.colorScheme.error, fontSize: 12)),
+      appBar: headerApp('Daftar Berobat', aksi: [TombolHeader('Batal', onTap: () => Navigator.pop(context))]),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Label('Nama pasien', atas: 0),
+          TextField(controller: _nama, textCapitalization: TextCapitalization.words),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Label('Umur'),
+                    TextField(controller: _umur, keyboardType: TextInputType.number),
+                  ],
+                ),
               ),
-            const SizedBox(height: 20),
-            Text('Foto KTP', style: tema.textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF4DB),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF2C94C)),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Label('Nomor HP'),
+                    TextField(controller: _hp, keyboardType: TextInputType.phone),
+                  ],
+                ),
               ),
-              child: const Row(
+            ],
+          ),
+          const Label('Alamat'),
+          TextField(
+            controller: _alamat,
+            decoration: const InputDecoration(hintText: 'Desa/kelurahan, kecamatan, kota'),
+          ),
+          const Label('Keluhan'),
+          TextField(
+            controller: _keluhan,
+            minLines: 4,
+            maxLines: 8,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'Ceritakan keluhan dan sudah berapa lama'),
+          ),
+          const Label('Foto atau video kondisi pasien (wajib)'),
+          GridMedia(
+            berkas: _kondisi,
+            onHapus: (f) => setState(() => _kondisi.remove(f)),
+            tambahan: bisaTambah ? KotakTambah(label: 'Tambah foto/video', onTap: _pilihKondisi) : null,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text('Foto jpg/png maks. 5 MB (maks. 5 berkas), video mp4 maks. 30 MB (1 berkas).', style: tsCap),
+          ),
+          const Label('Foto KTP (wajib)'),
+          const KotakPeringatan(
+            child: Text.rich(TextSpan(children: [
+              TextSpan(text: 'Tutup NOMOR NIK', style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: ' pada foto KTP untuk menjaga keamanan data Anda.'),
+            ])),
+          ),
+          GridMedia(
+            berkas: [?_ktp],
+            label: 'KTP',
+            onHapus: (_) => setState(() => _ktp = null),
+            tambahan: _ktp == null ? KotakTambah(label: 'Foto KTP', onTap: _pilihKtp) : null,
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () => setState(() => _nikDitutup = !_nikDitutup),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
                 children: [
-                  Icon(Icons.shield_outlined, color: Color(0xFF8A5A00)),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text('NOMOR NIK WAJIB DITUTUP sebelum difoto, demi keamanan data Anda.',
-                        style: TextStyle(color: Color(0xFF8A5A00), fontWeight: FontWeight.w600)),
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Checkbox(
+                      value: _nikDitutup,
+                      onChanged: (v) => setState(() => _nikDitutup = v ?? false),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  const Expanded(child: Text('NIK pada foto KTP sudah saya tutup.', style: TextStyle(fontSize: 14))),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                if (_ktp != null) MediaThumb(_ktp!, onHapus: () => setState(() => _ktp = null)),
-                if (_ktp == null) _TombolTambah(label: 'Foto KTP', onTap: _pilihKtp),
-              ],
-            ),
-            const SizedBox(height: 28),
-            FilledButton(
-              onPressed: _proses ? null : _kirim,
-              child: _proses
-                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Kirim Pendaftaran'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TombolTambah extends StatelessWidget {
-  const _TombolTambah({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 88,
-        height: 88,
-        decoration: BoxDecoration(
-          color: AppColors.hijauMuda,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.hijau.withValues(alpha: 0.4)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.add_a_photo_outlined, color: AppColors.hijau),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.hijau)),
-          ],
-        ),
+          ),
+          Tombol('Kirim Pendaftaran', memuat: _proses, onPressed: _kirim),
+        ],
       ),
     );
   }
