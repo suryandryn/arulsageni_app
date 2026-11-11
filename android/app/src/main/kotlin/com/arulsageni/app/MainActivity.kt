@@ -1,4 +1,4 @@
-package com.arulsageni.arulsageni
+package com.arulsageni.app
 
 import io.flutter.embedding.android.FlutterActivity
 

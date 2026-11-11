@@ -1,17 +1,43 @@
-# arulsageni
+# Padepokan Arul Sageni
 
-Padepokan Arul Sageni
+Aplikasi Android pendaftaran berobat & janji temu untuk Padepokan Arul Sageni
+(Kang Arul Sageni, Subang). Pasien mendaftar, admin menilai dan memberi jadwal,
+pasien menerima notifikasi dan nomor antrean.
 
-## Getting Started
+- **Aplikasi**: Flutter (Android 8+), package `com.arulsageni.app`
+- **Backend** (menyusul): Laravel + MySQL di hosting `arulsageni.com`
+- **Notifikasi push**: Firebase Cloud Messaging (hanya pengantar, tanpa data)
 
-This project is a starting point for a Flutter application.
+## Dokumentasi
+| Dokumen | Isi |
+|---|---|
+| [docs/SPESIFIKASI.md](docs/SPESIFIKASI.md) | Fitur, menu, status, aturan jadwal, data yang masih ditunggu |
+| [docs/ARSITEKTUR.md](docs/ARSITEKTUR.md) | Diagram sistem, keputusan teknis, batasan hosting, struktur kode |
+| [docs/API.md](docs/API.md) | Rancangan endpoint, tabel MySQL, cron |
+| `reference/` | Dokumen asli dari klien (file kredensial tidak di-commit) |
 
-A few resources to get you started if this is your first Flutter project:
+## Menjalankan
+```bash
+flutter pub get
+flutter run            # HP / emulator Android
+flutter test
+flutter analyze
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Saat ini aplikasi memakai **data contoh** (`AppConfig.useMock = true`), belum
+terhubung ke server. Akun demo:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Peran | Login | Kata sandi |
+|---|---|---|
+| Pasien | `081234567890` | `123456` |
+| Admin | `admin` | `admin123` |
+
+## Status
+- [x] Struktur proyek, tema hijau-putih, navigasi pasien & admin
+- [x] Semua layar pasien & admin dengan data contoh
+- [x] Logika kuota, nomor antrean, tanggal libur, periode jadwal (teruji)
+- [ ] API Laravel di hosting + `ApiRepository`
+- [ ] Notifikasi push (FCM) & pengingat lokal
+- [ ] Kompresi video sebelum upload
+- [ ] Logo & ikon aplikasi (menunggu logo klien)
+- [ ] Keystore rilis & unggah Play Store

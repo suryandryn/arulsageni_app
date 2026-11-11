@@ -1,30 +1,46 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:arulsageni/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:arulsageni/main.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUpAll(() => initializeDateFormatting('id_ID'));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('Layar masuk tampil, pasien demo bisa masuk ke Beranda', (tester) async {
+    await tester.pumpWidget(const PadepokanApp());
+    expect(find.text('Padepokan Arul Sageni'), findsOneWidget);
+    expect(find.text('Masuk'), findsWidgets);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).at(0), '081234567890');
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Halo, Budi 👋'), findsOneWidget);
+    expect(find.text('Janji berobat terdekat'), findsOneWidget);
+  });
+
+  testWidgets('Kata sandi salah menampilkan pesan galat', (tester) async {
+    await tester.pumpWidget(const PadepokanApp());
+    await tester.enterText(find.byType(TextFormField).at(0), '081234567890');
+    await tester.enterText(find.byType(TextFormField).at(1), 'salah');
+    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Nomor WhatsApp atau kata sandi salah.'), findsOneWidget);
+  });
+
+  testWidgets('Admin masuk ke menu Ringkas', (tester) async {
+    await tester.pumpWidget(const PadepokanApp());
+    await tester.enterText(find.byType(TextFormField).at(0), 'admin');
+    await tester.enterText(find.byType(TextFormField).at(1), 'admin123');
+    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Admin • Ringkas'), findsOneWidget);
+    expect(find.text('Menunggu verifikasi'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
   });
 }
