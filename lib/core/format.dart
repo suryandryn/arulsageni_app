@@ -26,14 +26,18 @@ String fmtBulan(DateTime d) => DateFormat('MMMM y', 'id_ID').format(d);
 /// 25 Nov 09.12
 String fmtWaktu(DateTime d) => '${DateFormat('d MMM', 'id_ID').format(d)} ${DateFormat('HH.mm').format(d)}';
 
-/// "H-3" atau "Hari ini".
+/// "H-3", "Hari ini", atau "Sudah lewat" (sama dengan panel web).
 String hMinus(DateTime tanggal, {DateTime? sekarang}) {
   final n = tanggalSaja(tanggal).difference(tanggalSaja(sekarang ?? DateTime.now())).inDays;
-  return n > 0 ? 'H-$n' : 'Hari ini';
+  return n > 0 ? 'H-$n' : (n == 0 ? 'Hari ini' : 'Sudah lewat');
 }
 
-/// Validasi jam "08.00" (titik, 24 jam). Menerima juga "08:00".
+/// "8:00" / "08.00" → "08.00" (24 jam); null bila tidak valid. Sama dengan
+/// `JadwalService::normalJam` di server.
 String? normalJam(String s) {
-  final t = s.trim().replaceAll(':', '.');
-  return RegExp(r'^([01]\d|2[0-3])\.[0-5]\d$').hasMatch(t) ? t : null;
+  final m = RegExp(r'^(\d{1,2})[.:](\d{2})$').firstMatch(s.trim());
+  if (m == null) return null;
+  final (j, n) = (int.parse(m[1]!), int.parse(m[2]!));
+  if (j > 23 || n > 59) return null;
+  return '${'$j'.padLeft(2, '0')}.${'$n'.padLeft(2, '0')}';
 }

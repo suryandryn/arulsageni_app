@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Warna aksen notifikasi = hijau utama aplikasi (AppColors.pri) -->
+    <color name="notifikasi">#2F5D3A</color>
+    <!-- Nama saluran notifikasi di Pengaturan Android (menggantikan "Miscellaneous" bawaan FCM) -->
+    <string name="fcm_fallback_notification_channel_label">Pemberitahuan</string>
+</resources>

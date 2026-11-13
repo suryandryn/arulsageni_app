@@ -35,7 +35,13 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
   }
 
   void _muatUlang() {
-    if (mounted) setState(() => _future = widget.load(_repo!));
+    if (!mounted) return;
+    // Jangan `setState(() => _future = ...)`: closure itu mengembalikan Future dan
+    // memicu assertion setState di mode debug.
+    final f = widget.load(_repo!);
+    setState(() {
+      _future = f;
+    });
   }
 
   @override
@@ -49,6 +55,8 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
     return FutureBuilder<T>(
       future: _future,
       builder: (context, snap) {
+        // Gagal saat memuat ulang (mis. sinyal putus sesaat): tetap tampilkan data lama.
+        if (snap.hasError && _adaData) return widget.builder(context, _terakhir as T);
         if (snap.hasError) {
           return Center(
             child: Padding(

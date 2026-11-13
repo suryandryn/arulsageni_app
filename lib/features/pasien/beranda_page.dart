@@ -53,15 +53,6 @@ class BerandaPage extends StatelessWidget {
               ),
               if (daftar.isEmpty) const TeksKosong('Belum ada pendaftaran.'),
               for (final p in daftar) KartuPendaftaranSaya(p),
-              const Kartu(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    JudulKartu('Jadwal tersimpan di akun Anda'),
-                    Text('Jadwal tersimpan di server, bukan hanya di HP. Ganti HP? Cukup masuk lagi.', style: tsMut),
-                  ],
-                ),
-              ),
             ],
           );
         },
@@ -88,7 +79,7 @@ class KartuPendaftaranSaya extends StatelessWidget {
           ),
           Text(
             p.status == StatusPendaftaran.dijadwalkan
-                ? '${fmtPendek(p.tanggal!)} pukul ${p.jam}'
+                ? '${fmtPendek(p.tanggal!)} pukul ${p.jam}${p.nomorAntrean == null ? '' : ' · Antrean ${p.nomorAntrean}'}'
                 : 'Dikirim ${fmtTglBln(p.dibuat)}',
             style: tsMut,
           ),
@@ -96,6 +87,12 @@ class KartuPendaftaranSaya extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(p.alasan!, style: const TextStyle(fontSize: 14, color: AppColors.red)),
+            ),
+          if (p.status == StatusPendaftaran.perluDilengkapi && p.catatan != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text('Perlu dilengkapi: ${p.catatan}',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF9A4A00), fontWeight: FontWeight.w600)),
             ),
         ],
       ),

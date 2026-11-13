@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
+import '../../data/repository.dart';
 import '../../models/models.dart';
 import '../../state/session.dart';
 import '../../widgets/async_view.dart';
+import '../../widgets/catatan_lengkapi.dart';
 import '../../widgets/jadwal_card.dart';
 import '../../widgets/media.dart';
+import '../../widgets/pengajuan.dart';
 import '../../widgets/ui.dart';
 import 'beranda_page.dart';
+import 'daftar_berobat_page.dart';
+import 'jadwal_ulang_page.dart';
 import 'pasien_shell.dart';
 
 /// Tab "Daftar": semua pendaftaran milik akun ini.
@@ -42,6 +47,9 @@ class PendaftaranPage extends StatelessWidget {
                       kanan: Tag.status(p.status),
                     ),
                     Text(p.keluhan, style: tsMut),
+                    if (p.pengajuanMenunggu case final a?)
+                      Text('Pengajuan ${a.jenis.label.toLowerCase()} menunggu persetujuan admin',
+                          style: const TextStyle(fontSize: 13, color: AppColors.wtx, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -62,7 +70,7 @@ class DetailPendaftaranPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: headerApp('Detail Pendaftaran', aksi: [TombolHeader('Kembali', onTap: () => Navigator.pop(context))]),
+      appBar: headerApp('Detail Pendaftaran', kembali: true),
       body: AsyncView(
         load: (repo) => repo.pendaftaran(id),
         builder: (context, p) {
@@ -71,6 +79,16 @@ class DetailPendaftaranPage extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             children: [
               if (p.status == StatusPendaftaran.dijadwalkan) KartuJadwal(p),
+              // Catatan tetap tampil setelah dilengkapi, selama masih menunggu dinilai admin.
+              if (p.catatan != null &&
+                  (p.status == StatusPendaftaran.perluDilengkapi || p.status == StatusPendaftaran.menunggu))
+                KartuCatatanLengkapi(
+                  p,
+                  aksi: [
+                    if (p.bisaDilengkapi)
+                      Tombol('Lengkapi Pendaftaran', onPressed: () => bukaLengkapiPendaftaran(context, p)),
+                  ],
+                ),
               Kartu(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,12 +114,58 @@ class DetailPendaftaranPage extends StatelessWidget {
                   ],
                 ),
               ),
+              if (p.pengajuan != null)
+                KartuPengajuan(
+                  p,
+                  aksi: [
+                    if (p.pengajuanMenunggu != null)
+                      Tombol('Tarik pengajuan', varian: Varian.garis, onPressed: () => _tarik(context, p)),
+                  ],
+                ),
+              if (p.bisaAjukanJadwalUlang)
+                Tombol('Ajukan jadwal ulang', atas: 0, varian: Varian.garis,
+                    onPressed: () => bukaAjukanJadwalUlang(context, p)),
+              if (p.bisaAjukanBatal)
+                Tombol('Ajukan pembatalan',
+                    atas: p.bisaAjukanJadwalUlang ? 10 : 0,
+                    varian: Varian.merah,
+                    onPressed: () => _ajukanBatal(context, p)),
               Tombol('Tanya admin lewat chat',
-                  atas: 0, varian: Varian.garis, onPressed: () => bukaTabPasien(context, 2)),
+                  atas: p.bisaAjukanJadwalUlang || p.bisaAjukanBatal ? 10 : 0,
+                  varian: Varian.garis,
+                  onPressed: () => bukaTabPasien(context, 2)),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _ajukanBatal(BuildContext context, Pendaftaran p) async {
+    final alasan = await mintaAlasan(
+      context,
+      judul: 'Ajukan pembatalan?',
+      label: 'Alasan (boleh dikosongkan)',
+      petunjuk: 'Contoh: keluhan sudah membaik.',
+      tombol: 'Kirim pengajuan',
+      merah: true,
+    );
+    if (alasan == null || !context.mounted) return;
+    await _jalankan(context, () => context.read<Repository>().ajukanBatal(p.id, alasan: alasan),
+        'Pengajuan terkirim', 'Menunggu persetujuan admin.');
+  }
+
+  Future<void> _tarik(BuildContext context, Pendaftaran p) async {
+    if (!await konfirmasi(context, 'Tarik pengajuan ini?') || !context.mounted) return;
+    await _jalankan(context, () => context.read<Repository>().tarikPengajuan(p.id), 'Pengajuan ditarik', p.nama);
+  }
+
+  Future<void> _jalankan(BuildContext context, Future<void> Function() f, String judul, String isi) async {
+    try {
+      await f();
+      if (context.mounted) toast(context, judul, isi);
+    } catch (e) {
+      if (context.mounted) toast(context, 'Gagal', '$e');
+    }
   }
 }

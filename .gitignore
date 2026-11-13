@@ -54,3 +54,6 @@ reference/arulsageni.com.txt
 *.keystore
 android/key.properties
 .env
+
+# Kunci service account Firebase (rahasia server)
+*firebase-adminsdk*.json

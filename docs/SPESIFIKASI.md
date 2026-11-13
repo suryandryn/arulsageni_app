@@ -47,7 +47,7 @@ nav bawah, toast) di `lib/widgets/ui.dart`.
 | Masuk | Foto Kang Arul, tab Pasien/Admin, nomor HP + sandi, "Daftar akun" |
 | Beranda | Kartu jadwal terdekat (H-n, Buka Google Maps) + arahan kedatangan, tombol Daftar Berobat, daftar "Pendaftaran saya" |
 | Daftar | Semua pendaftaran akun (satu akun bisa mendaftarkan anggota keluarga) |
-| Detail | Kartu jadwal, data, alasan bila ditolak, foto/video, "Tanya admin lewat chat" |
+| Detail | Kartu jadwal, catatan perlu dilengkapi + tombol **Lengkapi Pendaftaran** (formulir Daftar Berobat terisi data & berkas lama), data, alasan bila ditolak, foto/video, **Ajukan jadwal ulang** (kalender + jam bersisa kuota, alasan) / **Ajukan pembatalan** (alasan), status pengajuan + alasan bila ditolak, tarik pengajuan, "Tanya admin lewat chat" |
 | Daftar Berobat | Nama, umur, nomor HP, alamat, keluhan, foto/video kondisi (wajib), foto KTP (wajib) + peringatan & centang "NIK sudah ditutup" |
 | Chat | Chat teks dengan admin |
 | Info | Foto & alamat, Google Maps, WA admin, estimasi biaya, website, media sosial |
@@ -57,19 +57,45 @@ nav bawah, toast) di `lib/widgets/ui.dart`.
 
 | Menu | Isi |
 |---|---|
-| Beranda | Pendaftaran menunggu, jadwal hari praktik berikutnya, sisa kuota 30 hari, chat belum dibaca |
-| Pendaftaran | Cari nama/nomor, filter status; detail: data, media, KTP, WhatsApp & Chat, **Beri/Pindah jadwal** (kalender + jam bersisa kuota), **Tolak** dengan alasan, kirim pengingat, Selesai / Tidak hadir / Batal |
+| Beranda | Pendaftaran menunggu, jadwal hari praktik berikutnya, sisa kuota 30 hari, chat belum dibaca; banner "N pengajuan menunggu keputusan" bila ada |
+| Pendaftaran | Cari nama/nomor, filter status + filter **Pengajuan pasien**; detail: data, media, KTP, WhatsApp & Chat, **Beri/Pindah jadwal** (kalender + jam bersisa kuota), **Minta dilengkapi** dengan catatan, **Tolak** dengan alasan, kirim pengingat, Selesai / Tidak hadir / Batal, **Setujui / Tolak pengajuan** jadwal ulang / pembatalan (tolak wajib alasan) |
 | Jadwal | Kalender bulanan (sisa kuota per tanggal); per tanggal: slot jam, kuota, aktif/nonaktif, hapus, tambah jam; **buat slot massal** (rentang ≤ 24 bulan, hari praktik, jam, kuota per jam) |
 | Chat | Daftar percakapan + jumlah pesan baru; ruang chat dengan tombol WhatsApp |
 | Atur | Data pasien (reset sandi, aktif/nonaktif), Media sosial (tambah, ubah, urutkan, aktif/nonaktif, hapus), keluar |
 
 ## Status pendaftaran
 ```
-Menunggu ──▶ Dijadwalkan ──▶ Selesai
-   │              ├──▶ Tidak hadir
-   │              └──▶ Batal
+            ┌──▶ Perlu dilengkapi (catatan wajib) ──▶ pasien mengedit ──┐
+            │                                                          │
+Menunggu ◀──┴──────────────────────────────────────────────────────────┘
+   ├──▶ Dijadwalkan ──▶ Selesai
+   │          ├──▶ Tidak hadir
+   │          └──▶ Batal
    └──▶ Ditolak (alasan wajib, dikirim ke pasien)
 ```
+- **Perlu dilengkapi**: admin menulis apa yang kurang (wajib, dikirim ke pasien). Pasien bisa
+  mengedit data, foto/video kondisi, dan foto KTP; setelah dikirim status kembali Menunggu.
+  Catatan tetap tersimpan dan tampil ("Sudah dilengkapi <waktu>"). Dari Perlu dilengkapi admin
+  juga bisa langsung memberi jadwal, menolak, atau mengganti catatan. Pasien hanya bisa mengedit
+  saat status Perlu dilengkapi.
+
+## Pengajuan pasien (jadwal ulang / pembatalan)
+- **Jadwal ulang**: hanya untuk pendaftaran Dijadwalkan. Pasien memilih tanggal + jam baru
+  (slot aktif, sisa kuota > 0, beda dari jadwal sekarang) dan alasan (boleh kosong).
+- **Pembatalan**: untuk pendaftaran Menunggu, Perlu dilengkapi, atau Dijadwalkan, alasan boleh kosong.
+- Satu pendaftaran hanya boleh punya satu pengajuan yang menunggu; pasien bisa menariknya.
+- Admin (aplikasi & panel web) **menyetujui** → jadwal dipindah (kuota dicek lagi) atau status
+  menjadi Batal, atau **menolak** dengan alasan wajib. Pasien diberi notifikasi.
+- Bila admin mengubah status lewat tindakan lain (Tolak, Selesai, Tidak hadir, Batal),
+  pengajuan yang menunggu otomatis ditutup.
+
+## Nomor antrean
+- Dihitung **per tanggal**, urut siapa yang **lebih dulu dijadwalkan admin** (bukan urut jam).
+- Pindah jam di tanggal yang sama: nomor tetap. Pindah ke tanggal lain: nomor paling belakang di tanggal baru.
+- Bila ada yang **batal** atau **pindah tanggal**, semua nomor di tanggal itu diurutkan ulang dan pasien
+  yang nomornya berubah mendapat notifikasi. Selesai / Tidak hadir tidak menggeser nomor.
+- Tampil di: kartu jadwal & daftar pendaftaran pasien, notifikasi jadwal & pengingat, detail &
+  daftar pendaftaran admin, Beranda admin (pasien hari praktik berikutnya), daftar pasien per tanggal di Jadwal.
 
 ## Aturan jadwal (slot)
 - Jadwal dibuka per **slot = tanggal + jam**, masing-masing dengan kuota.
@@ -80,7 +106,9 @@ Menunggu ──▶ Dijadwalkan ──▶ Selesai
 - Libur = nonaktifkan / hapus slot tanggal itu.
 
 ## Batas berkas
-Foto jpg/png maks. 5 MB (maks. 5 berkas), video mp4 maks. 30 MB (1 berkas). Foto dikompres di HP.
+Foto jpg/png maks. 5 MB (maks. 5 berkas), video mp4 maks. 30 detik (1 berkas). Foto diperkecil di HP
+(lebar 1600 px, kualitas 80%); video dikompres di HP ke 540p (±5 MB per 30 detik) sebelum dikirim.
+Server menolak foto > 5 MB dan video > 10 MB. (Demo awal: video 30 MB; diperketat karena hosting 250 MB.)
 
 ## Info tetap (diatur saat pembuatan aplikasi)
 Alamat, biaya, nomor admin, website ada di `lib/core/klinik.dart`. Teks estimasi
@@ -89,9 +117,9 @@ biaya dan arahan jadwal ("JAM 04.00 PAGI SUDAH HARUS DI LOKASI ...") persis teks
 ## Perbedaan demo vs dokumen konsep (keputusan: ikut demo)
 | Konsep (.docx) | Demo / aplikasi |
 |---|---|
-| Status "Perlu dilengkapi" & tombol "Minta dilengkapi" | Tidak ada — admin meminta lewat Chat/WhatsApp |
-| Nomor antrean otomatis | Tidak ditampilkan; kuota per jam |
-| Pasien mengajukan jadwal ulang / membatalkan | Tidak ada di demo — pasien menghubungi admin lewat chat |
+| Status "Perlu dilengkapi" & tombol "Minta dilengkapi" | Ditambahkan setelah demo: catatan wajib, pasien mengedit pendaftaran, lalu kembali Menunggu |
+| Nomor antrean otomatis | Ditambahkan setelah demo: per tanggal, urut waktu dijadwalkan admin, disusun ulang bila ada yang batal/pindah (pasien terdampak diberi notifikasi); kuota tetap per jam |
+| Pasien mengajukan jadwal ulang / membatalkan | Ditambahkan setelah demo: pengajuan disetujui/ditolak admin (lihat "Pengajuan pasien") |
 | Admin mengatur alamat/biaya/nomor | Tetap di aplikasi; admin hanya mengatur media sosial |
 | Kuota per hari, periode diperpanjang 1/2 tahun | Kuota per slot jam, slot massal ≤ 24 bulan |
 

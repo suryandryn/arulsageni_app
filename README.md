@@ -6,7 +6,7 @@ pasien menerima notifikasi dan nomor antrean.
 
 - **Aplikasi**: Flutter (Android 8+), package `com.arulsageni.app`
 - **Backend** (menyusul): Laravel + MySQL di hosting `arulsageni.com`
-- **Notifikasi push**: Firebase Cloud Messaging (hanya pengantar, tanpa data)
+- **Notifikasi push**: Firebase Cloud Messaging, proyek `arul-sageni` (hanya pengantar: data tetap di server, push membawa judul & isi singkat)
 
 ## Dokumentasi
 | Dokumen | Isi |
@@ -19,27 +19,58 @@ pasien menerima notifikasi dan nomor antrean.
 ## Menjalankan
 ```bash
 flutter pub get
-flutter run            # HP / emulator Android
+flutter run                                   # server Laravel di laptop (emulator), DB sama dengan panel web
+adb reverse tcp:8000 tcp:8000 && flutter run --dart-define=API_URL=http://127.0.0.1:8000/api/v1   # HP lewat kabel USB (paling mudah)
+flutter run --dart-define=API_URL=http://<IP-laptop>:8000/api/v1   # HP satu WiFi dengan laptop (server: --host=0.0.0.0, izinkan port 8000 di firewall)
+flutter run --dart-define=ENV=mock            # data contoh di memori, tanpa server
+flutter run --dart-define=ENV=staging         # velocitydatacenter.biz/arulsageni.com
+flutter build apk                             # rilis → produksi arulsageni.com
 flutter test
 flutter analyze
 ```
 
-Saat ini aplikasi memakai **data contoh** (`AppConfig.useMock = true`), belum
-terhubung ke server. Akun demo:
+Lingkungan diatur di `lib/core/config.dart`. Build debug mengizinkan `http://`
+(server lokal); build rilis wajib `https://`.
+
+### Server lokal (Laravel di laptop)
+Repo backend `D:\arulsageni-dashboard`, database MySQL Laragon `arulsageni`:
+```bash
+cd D:\arulsageni-dashboard
+php artisan serve --host=0.0.0.0 --port=8000   # panel web: http://localhost:8000
+```
+Uji integrasi aplikasi ↔ server (membuat data uji di database lokal):
+```bash
+flutter test test/api_lokal_test.dart --dart-define=API_LOKAL=http://127.0.0.1:8000/api/v1
+```
+
+### Akun
+Mode mock dan server lokal (data `ContohSeeder`) memakai akun yang sama:
 
 | Peran | Login | Kata sandi |
 |---|---|---|
 | Pasien | `0812-3456-7890` | `123456` |
-| Admin | `admin` | `123456` |
+| Admin | `admin` | `123456` (lokal; staging/produksi berbeda) |
 
-(Di mode demo, kolom masuk sudah terisi.)
+(Di mode mock, kolom masuk sudah terisi.)
 
 ## Status
 - [x] Tampilan & alur mengikuti demo desain (hijau `#2F5D3A`, emas, krem; font Lora + Plus Jakarta Sans)
 - [x] Semua layar pasien & admin dengan data contoh
 - [x] Jadwal berbasis slot jam + kuota, kalender sisa kuota, slot massal (teruji)
-- [ ] API Laravel di hosting + `ApiRepository`
-- [ ] Notifikasi push (FCM) & pengingat lokal
+- [x] API Laravel (`/api/v1`, repo dashboard) + `ApiRepository`, sesi tersimpan, polling chat (teruji, termasuk integrasi ke server lokal)
+- [ ] API di staging & produksi (cPanel)
+- [ ] Pemutar video (sekarang video ditampilkan sebagai kotak nama berkas)
+- [x] Notifikasi push (FCM) & pengingat H-1 otomatis (cron server)
 - [ ] Kompresi video sebelum upload
 - [ ] Logo & ikon aplikasi (menunggu logo klien)
 - [ ] Keystore rilis & unggah Play Store
+
+### Mengembalikan data lokal ke data demo
+Menghapus seluruh isi database lokal `arulsageni` dan berkas pasien, lalu mengisi ulang
+data yang sama dengan mode mock:
+```bash
+cd D:\arulsageni-dashboard
+rm -rf storage/app/private/pasien
+php artisan migrate:fresh --seed
+php artisan db:seed --class=ContohSeeder
+```

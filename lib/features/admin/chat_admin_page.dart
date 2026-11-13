@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/klinik.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/async_view.dart';
+import '../../widgets/ikon_whatsapp.dart';
 import '../../widgets/kontak.dart';
 import '../../widgets/ui.dart';
 import '../chat/chat_view.dart';
@@ -48,8 +50,8 @@ class ChatAdminPage extends StatelessWidget {
   }
 }
 
-void bukaChatAdmin(BuildContext context, String pasienId) => Navigator.of(context)
-    .push(MaterialPageRoute<void>(builder: (_) => ChatAdminRoomPage(pasienId: pasienId)));
+void bukaChatAdmin(BuildContext context, String pasienId) =>
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatAdminRoomPage(pasienId: pasienId)));
 
 /// Ruang chat admin dengan satu akun pasien.
 class ChatAdminRoomPage extends StatelessWidget {
@@ -66,7 +68,12 @@ class ChatAdminRoomPage extends StatelessWidget {
           kembali: true,
           aksi: [
             if (u != null)
-              TombolHeader('WhatsApp', onTap: () => bukaWhatsApp(context, u.noHp, pesan: 'Halo ${u.nama}')),
+              IconButton(
+                tooltip: 'Chat WhatsApp',
+                style: IconButton.styleFrom(backgroundColor: const Color(0x26FFFFFF), fixedSize: const Size(44, 44)),
+                icon: const IkonWhatsApp(warna: Colors.white),
+                onPressed: () => bukaWhatsApp(context, u.noHp, pesan: 'Halo ${u.nama}, kami dari ${Klinik.nama}.'),
+              ),
           ],
         ),
         body: ChatView(pasienId: pasienId, sebagaiAdmin: true),

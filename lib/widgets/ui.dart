@@ -8,18 +8,35 @@ import '../models/models.dart';
 // =============================================================== header
 
 /// Header hijau (header.top di demo): judul Lora + tombol transparan di kanan.
+/// [kembali] = tombol chevron di kiri untuk kembali ke layar sebelumnya.
 PreferredSizeWidget headerApp(String judul, {List<Widget> aksi = const [], bool kembali = false}) {
   return AppBar(
-    automaticallyImplyLeading: kembali,
+    automaticallyImplyLeading: false,
+    leading: kembali ? const TombolKembali() : null,
     // Seperti demo: padding 16 + judul (58) atau tombol 40 (72).
     toolbarHeight: aksi.isEmpty ? 58 : 72,
-    titleSpacing: 16,
+    titleSpacing: kembali ? 0 : 16,
     title: Text(judul, maxLines: 1, overflow: TextOverflow.ellipsis),
     actions: [
       for (final a in aksi) Padding(padding: const EdgeInsets.only(left: 8), child: a),
       const SizedBox(width: 16),
     ],
   );
+}
+
+/// Chevron kembali di kiri header.
+class TombolKembali extends StatelessWidget {
+  const TombolKembali({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Kembali',
+      color: Colors.white,
+      icon: const Icon(Icons.chevron_left, size: 32),
+      onPressed: () => Navigator.maybePop(context),
+    );
+  }
 }
 
 /// Tombol di header: latar putih 15%, sudut 10, bisa diberi titik angka emas.
@@ -50,8 +67,10 @@ class TombolHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(label,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text(
+                        label,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                 ),
@@ -124,8 +143,7 @@ class NavBawah extends StatelessWidget {
                           clipBehavior: Clip.none,
                           children: [
                             Icon(items[i].ikon, size: 22, color: i == index ? AppColors.pri : AppColors.mut),
-                            if (items[i].badge > 0)
-                              Positioned(top: -7, right: -14, child: TitikAngka(items[i].badge)),
+                            if (items[i].badge > 0) Positioned(top: -7, right: -14, child: TitikAngka(items[i].badge)),
                           ],
                         ),
                         const SizedBox(height: 2),
@@ -188,8 +206,10 @@ class JudulKartu extends StatelessWidget {
   final double bawah;
 
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: EdgeInsets.only(bottom: bawah), child: Text(teks, style: lora(18)));
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: bawah),
+    child: Text(teks, style: lora(18)),
+  );
 }
 
 /// Label isian (label): tebal 14, jarak atas 14.
@@ -200,9 +220,9 @@ class Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(top: atas, bottom: 6),
-        child: Text(teks, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      );
+    padding: EdgeInsets.only(top: atas, bottom: 6),
+    child: Text(teks, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+  );
 }
 
 /// Baris kiri-kanan (.row).
@@ -213,8 +233,12 @@ class Baris extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [Expanded(child: kiri), const SizedBox(width: 8), kanan],
-      );
+    children: [
+      Expanded(child: kiri),
+      const SizedBox(width: 8),
+      kanan,
+    ],
+  );
 }
 
 // =============================================================== tombol
@@ -270,7 +294,10 @@ class Tombol extends StatelessWidget {
           ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
           : Text(label, textAlign: TextAlign.center),
     );
-    return Padding(padding: EdgeInsets.only(top: kecil ? 6 : atas), child: tombol);
+    return Padding(
+      padding: EdgeInsets.only(top: kecil ? 6 : atas),
+      child: tombol,
+    );
   }
 }
 
@@ -295,30 +322,37 @@ class Tag extends StatelessWidget {
   final Color fg;
 
   static (Color, Color) warnaStatus(StatusPendaftaran s) => switch (s) {
-        StatusPendaftaran.menunggu => (const Color(0xFFF6ECD6), AppColors.wtx),
-        StatusPendaftaran.dijadwalkan => (const Color(0xFFE2F0E7), AppColors.ok),
-        StatusPendaftaran.ditolak => (const Color(0xFFFBE4E2), AppColors.red),
-        _ => (const Color(0xFFECEBE6), const Color(0xFF4B524D)),
-      };
+    StatusPendaftaran.menunggu => (const Color(0xFFF6ECD6), AppColors.wtx),
+    StatusPendaftaran.perluDilengkapi => (const Color(0xFFFDE7D6), const Color(0xFF9A4A00)),
+    StatusPendaftaran.dijadwalkan => (const Color(0xFFE2F0E7), AppColors.ok),
+    StatusPendaftaran.ditolak => (const Color(0xFFFBE4E2), AppColors.red),
+    _ => (const Color(0xFFECEBE6), const Color(0xFF4B524D)),
+  };
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
-      child: Text(teks, style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600)),
+      child: Text(
+        teks,
+        style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }
 
 /// Pil pilihan (.chip); `aktif` = .chip.on, `nonaktif` = redup & tak bisa diketuk.
 class Pil extends StatelessWidget {
-  const Pil(this.label, {super.key, this.onTap, this.aktif = false, this.nonaktif = false});
+  const Pil(this.label, {super.key, this.onTap, this.aktif = false, this.nonaktif = false, this.jumlah});
 
   final String label;
   final VoidCallback? onTap;
   final bool aktif;
   final bool nonaktif;
+
+  /// Angka redup di belakang label (jumlah data), seperti filter di panel web.
+  final int? jumlah;
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +371,10 @@ class Pil extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(label, style: TextStyle(fontSize: 14, color: aktif ? Colors.white : AppColors.tx)),
+                if (jumlah != null) ...[
+                  const SizedBox(width: 6),
+                  Text('$jumlah', style: TextStyle(fontSize: 13, color: aktif ? Colors.white70 : AppColors.mut)),
+                ],
               ],
             ),
           ),
@@ -347,14 +385,34 @@ class Pil extends StatelessWidget {
 }
 
 class DeretPil extends StatelessWidget {
-  const DeretPil({super.key, required this.children});
+  const DeretPil({super.key, required this.children, this.geser = false});
   final List<Widget> children;
 
+  /// `true` = satu baris yang bisa digeser ke samping (tidak turun baris).
+  final bool geser;
+
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    if (!geser) {
+      return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Wrap(spacing: 6, runSpacing: 6, children: children),
       );
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < children.length; i++)
+            Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
+              child: children[i],
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 // =============================================================== lain-lain
@@ -376,7 +434,10 @@ class KotakPeringatan extends StatelessWidget {
           Icon(ikon, size: 22, color: AppColors.wtx),
           const SizedBox(width: 10),
           Expanded(
-            child: DefaultTextStyle.merge(style: const TextStyle(color: AppColors.wtx, fontSize: 14), child: child),
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(color: AppColors.wtx, fontSize: 14),
+              child: child,
+            ),
           ),
         ],
       ),
@@ -436,8 +497,10 @@ class TeksKosong extends StatelessWidget {
   final String teks;
 
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.symmetric(vertical: 14), child: Text(teks, style: tsMut));
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: Text(teks, style: tsMut),
+  );
 }
 
 Future<bool> konfirmasi(BuildContext context, String pesan) async {
@@ -469,8 +532,10 @@ void toast(BuildContext context, String judul, String isi) {
       judul: judul,
       isi: isi,
       selesai: () {
-        if (_toastAktif == entry) _toastAktif = null;
-        if (entry.mounted) entry.remove();
+        // Bila sudah diganti toast baru, entri ini sudah dihapus: jangan hapus dua kali.
+        if (_toastAktif != entry) return;
+        _toastAktif = null;
+        entry.remove();
       },
     ),
   );
@@ -534,8 +599,10 @@ class _ToastState extends State<_Toast> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.judul,
-                    style: const TextStyle(color: AppColors.pri, fontWeight: FontWeight.w700, fontSize: 14)),
+                Text(
+                  widget.judul,
+                  style: const TextStyle(color: AppColors.pri, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
                 Text(widget.isi, style: const TextStyle(fontSize: 14, color: AppColors.tx)),
               ],
             ),

@@ -30,7 +30,7 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: headerApp('Notifikasi', aksi: [TombolHeader('Kembali', onTap: () => Navigator.pop(context))]),
+      appBar: headerApp('Notifikasi', kembali: true),
       body: AsyncView(
         load: (repo) => repo.notifikasi(_uid),
         builder: (context, list) => ListView(

@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../core/klinik.dart';
 import '../../core/theme.dart';
+import '../../models/models.dart';
 import '../../widgets/async_view.dart';
+import '../../widgets/gambar_klinik.dart';
 import '../../widgets/kontak.dart';
 import '../../widgets/ui.dart';
 import 'pasien_shell.dart';
 
 IconData ikonPlatform(String platform) => switch (platform) {
-      'YouTube' => Icons.smart_display_outlined,
-      'Facebook' => Icons.facebook_outlined,
-      'Instagram' => Icons.camera_alt_outlined,
-      'TikTok' => Icons.music_note_outlined,
-      _ => Icons.play_circle_outline,
-    };
+  'YouTube' => Icons.smart_display_outlined,
+  'Facebook' => Icons.facebook_outlined,
+  'Instagram' => Icons.camera_alt_outlined,
+  'TikTok' => Icons.music_note_outlined,
+  _ => Icons.play_circle_outline,
+};
 
+/// Menu Info pasien. Alamat, Maps, WA admin, biaya, dan website diatur admin
+/// (panel web / aplikasi admin > Atur > Info klinik).
 class InfoPage extends StatelessWidget {
   const InfoPage({super.key});
 
@@ -25,94 +29,15 @@ class InfoPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Kartu(
-            child: Column(
+          AsyncView(
+            load: (repo) => repo.infoKlinik(),
+            builder: (context, info) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.gold, width: 2),
-                        image: const DecorationImage(
-                          image: AssetImage(Klinik.foto),
-                          fit: BoxFit.cover,
-                          alignment: Alignment(0, -0.7),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(Klinik.nama, style: lora(18)),
-                          const Text(Klinik.pemilik, style: tsMut),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.place_outlined, size: 22),
-                    SizedBox(width: 8),
-                    Expanded(child: Text(Klinik.alamat)),
-                  ],
-                ),
-                Tombol('Buka Google Maps', varian: Varian.garis, onPressed: () => bukaUrl(context, Klinik.maps)),
-              ],
-            ),
-          ),
-          Kartu(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const JudulKartu('Admin resmi'),
-                const Text(Klinik.waAdmin),
-                Tombol('Chat via WhatsApp',
-                    varian: Varian.wa,
-                    onPressed: () => bukaWhatsApp(context, Klinik.waAdmin, pesan: 'Halo admin ${Klinik.nama}')),
-              ],
-            ),
-          ),
-          Kartu(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const JudulKartu('Estimasi biaya'),
-                for (final b in Klinik.biaya)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('•  '),
-                        Expanded(child: Text(b)),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                const Text(Klinik.biayaAkhir, style: TextStyle(fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
-          Kartu(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const JudulKartu('Website'),
-                BarisTautan(
-                  ikon: Icons.language,
-                  judul: 'pengobatankangarulsageni.com',
-                  sub: 'Website resmi',
-                  onTap: () => bukaUrl(context, Klinik.website),
-                ),
+                _kartuProfil(context, info),
+                _kartuAdmin(context, info),
+                _kartuBiaya(info),
+                if (info.websiteUrl.isNotEmpty) _kartuWebsite(context, info),
               ],
             ),
           ),
@@ -138,4 +63,96 @@ class InfoPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _kartuProfil(BuildContext context, InfoKlinik info) => Kartu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            GambarBulat(
+              info.fotoUrl,
+              ukuran: 64,
+              bingkai: const BorderSide(color: AppColors.gold, width: 2),
+              bayangan: false,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(Klinik.nama, style: lora(18)),
+                  const Text(Klinik.pemilik, style: tsMut),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.place_outlined, size: 22),
+            const SizedBox(width: 8),
+            Expanded(child: Text(info.alamat)),
+          ],
+        ),
+        Tombol('Buka Google Maps', varian: Varian.garis, onPressed: () => bukaUrl(context, info.mapsUrl)),
+      ],
+    ),
+  );
+
+  Widget _kartuAdmin(BuildContext context, InfoKlinik info) => Kartu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const JudulKartu('Admin resmi'),
+        Text(info.waAdmin),
+        Tombol(
+          'Chat via WhatsApp',
+          varian: Varian.wa,
+          onPressed: () => bukaWhatsApp(context, info.waAdmin, pesan: 'Halo admin ${Klinik.nama}'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _kartuBiaya(InfoKlinik info) => Kartu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const JudulKartu('Estimasi biaya'),
+        for (final b in info.poinBiaya)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('•  '),
+                Expanded(child: Text(b)),
+              ],
+            ),
+          ),
+        if (info.biayaCatatan.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(info.biayaCatatan, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ],
+    ),
+  );
+
+  Widget _kartuWebsite(BuildContext context, InfoKlinik info) => Kartu(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const JudulKartu('Website'),
+        BarisTautan(
+          ikon: Icons.language,
+          judul: info.websiteNama,
+          sub: info.websiteKeterangan.isEmpty ? 'Website' : info.websiteKeterangan,
+          onTap: () => bukaUrl(context, info.websiteUrl),
+        ),
+      ],
+    ),
+  );
 }

@@ -1,0 +1,26 @@
+{
+  // HP lewat USB memakai server Laravel di laptop: jalankan dulu `adb reverse tcp:8000 tcp:8000`.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "HP USB (server lokal)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define=API_URL=http://127.0.0.1:8000/api/v1"]
+    },
+    {
+      "name": "Emulator (server lokal)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Mock (tanpa server)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define=ENV=mock"]
+    }
+  ]
+}

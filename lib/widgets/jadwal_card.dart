@@ -4,6 +4,7 @@ import '../core/format.dart';
 import '../core/klinik.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
+import 'async_view.dart';
 import 'kontak.dart';
 import 'ui.dart';
 
@@ -17,6 +18,11 @@ class KartuJadwal extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = p.tanggal!;
     const putih = TextStyle(color: Colors.white);
+    // Link Maps dan kalimat jadwal diatur admin (Info klinik).
+    return AsyncView(load: (repo) => repo.infoKlinik(), builder: (context, info) => _isi(context, t, putih, info));
+  }
+
+  Widget _isi(BuildContext context, DateTime t, TextStyle putih, InfoKlinik info) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -35,23 +41,42 @@ class KartuJadwal extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Jadwal berobat - ${p.nama}',
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                        Text(
+                          'Jadwal berobat - ${p.nama}',
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(fmtHariTanggal(t),
-                              style: lora(26, weight: FontWeight.w700, color: Colors.white, height: 1.25)),
+                          child: Text(
+                            fmtHariTanggal(t),
+                            style: lora(26, weight: FontWeight.w700, color: Colors.white, height: 1.25),
+                          ),
                         ),
                         Text('${t.year} - pukul ${p.jam} WIB', style: putih),
+                        if (p.nomorAntrean case final n?)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('Nomor antrean ', style: putih),
+                                Text('$n', style: lora(28, weight: FontWeight.w700, color: AppColors.gold, height: 1)),
+                              ],
+                            ),
+                          ),
                         const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: _GarisPutus()),
                         Row(
                           children: [
-                            const Expanded(child: Text(Klinik.nama, style: putih)),
+                            Expanded(child: Text(Klinik.nama, style: putih)),
                             Text(hMinus(t), style: putih.copyWith(fontWeight: FontWeight.w700)),
                           ],
                         ),
-                        Tombol('Buka Google Maps',
-                            varian: Varian.putih, atas: 12, onPressed: () => bukaUrl(context, Klinik.maps)),
+                        Tombol(
+                          'Buka Google Maps',
+                          varian: Varian.putih,
+                          atas: 12,
+                          onPressed: () => bukaUrl(context, info.mapsUrl),
+                        ),
                       ],
                     ),
                   ),
@@ -60,15 +85,16 @@ class KartuJadwal extends StatelessWidget {
             ),
           ),
         ),
-        _KartuArahan(p),
+        _KartuArahan(p, info),
       ],
     );
   }
 }
 
 class _KartuArahan extends StatelessWidget {
-  const _KartuArahan(this.p);
+  const _KartuArahan(this.p, this.info);
   final Pendaftaran p;
+  final InfoKlinik info;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +120,7 @@ class _KartuArahan extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('JADWAL BEROBAT (${p.nama.toUpperCase()})', style: const TextStyle(fontWeight: FontWeight.w700)),
-                for (final par in Klinik.arahanJadwal(tgl))
+                for (final par in info.arahanJadwal(tgl))
                   Padding(padding: const EdgeInsets.only(top: 8), child: Text(par)),
               ],
             ),
