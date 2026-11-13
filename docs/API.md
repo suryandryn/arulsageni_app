@@ -151,8 +151,8 @@ Batas: 5 percobaan/menit per nomor/username, 60/menit per IP.
 - PHP **8.3+** (composer.lock memuat paket yang mensyaratkan 8.3).
 - `upload_max_filesize` ≥ 40M dan `post_max_size` ≥ 80M (5 foto + 1 video + KTP sekali kirim).
 - Cloudflare: bila aplikasi mendapat `403` HTML, buat aturan lewati challenge untuk `/arulsageni.com/api/*`.
-- Di balik Cloudflare Tunnel semua request terlihat dari IP yang sama, sehingga batas 60/menit per IP
-  berlaku bersama; batas per nomor tetap efektif.
+- Di balik Cloudflare Tunnel server membaca IP asli pengunjung dari `X-Forwarded-For` (proxy dipercaya di
+  `bootstrap/app.php`), jadi batas 60/menit berlaku per pengunjung. Langkah pasang live lengkap: `DEPLOY.md` di repo server.
 - **Cron** (cPanel → Cron Jobs, tiap menit):
   `* * * * * cd /path/ke/arulsageni-dashboard && php artisan schedule:run >> /dev/null 2>&1`
   Menjalankan `pengingat:kirim` tiap hari 08.00 WIB: notifikasi "Pengingat jadwal berobat" ke pasien
