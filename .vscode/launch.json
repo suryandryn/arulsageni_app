@@ -16,6 +16,13 @@
       "program": "lib/main.dart"
     },
     {
+      "name": "Server live (velocitydatacenter.biz)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define=ENV=produksi"]
+    },
+    {
       "name": "Mock (tanpa server)",
       "request": "launch",
       "type": "dart",

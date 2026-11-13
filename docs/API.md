@@ -6,8 +6,8 @@ panel admin web; berkas `routes/api.php`, `app/Http/Controllers/Api`, test
 
 | Lingkungan | Base URL |
 |---|---|
-| Staging (PC lokal via Cloudflare) | `https://velocitydatacenter.biz/arulsageni.com/api/v1` |
-| Produksi (cPanel) | `https://arulsageni.com/api/v1` |
+| **Produksi / live** (via Cloudflare) | `https://velocitydatacenter.biz/arulsageni.com/api/v1` — bawaan build rilis APK |
+| Domain sendiri (rencana, belum dipakai) | `https://arulsageni.com/api/v1` — build dengan `--dart-define=API_URL=...` |
 
 - Auth: header `Authorization: Bearer <token>` (Laravel Sanctum). Token tidak kedaluwarsa;
   dicabut saat keluar, akun dinonaktifkan, atau sandi direset admin.

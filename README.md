@@ -23,14 +23,31 @@ flutter run                                   # server Laravel di laptop (emulat
 adb reverse tcp:8000 tcp:8000 && flutter run --dart-define=API_URL=http://127.0.0.1:8000/api/v1   # HP lewat kabel USB (paling mudah)
 flutter run --dart-define=API_URL=http://<IP-laptop>:8000/api/v1   # HP satu WiFi dengan laptop (server: --host=0.0.0.0, izinkan port 8000 di firewall)
 flutter run --dart-define=ENV=mock            # data contoh di memori, tanpa server
-flutter run --dart-define=ENV=staging         # velocitydatacenter.biz/arulsageni.com
-flutter build apk                             # rilis → produksi arulsageni.com
+flutter run --dart-define=ENV=produksi        # debug ke server live velocitydatacenter.biz/arulsageni.com
+flutter build apk --release                   # rilis → server live (lihat "Build rilis")
 flutter test
 flutter analyze
 ```
 
 Lingkungan diatur di `lib/core/config.dart`. Build debug mengizinkan `http://`
 (server lokal); build rilis wajib `https://`.
+
+### Build rilis (APK untuk pengguna)
+Server live: `https://velocitydatacenter.biz/arulsageni.com/api/v1` (`AppConfig.urlProduksi` di
+`lib/core/config.dart`; ganti di sana bila pindah domain).
+
+1. **Sekali saja: buat keystore rilis** (pilih sandi sendiri, simpan baik-baik + cadangkan file `.jks`;
+   tanpa file & sandi yang sama, aplikasi tidak bisa di-update di HP pengguna):
+   ```bash
+   keytool -genkey -v -keystore android/arulsageni-rilis.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arulsageni
+   ```
+   Salin `android/key.properties.contoh` → `android/key.properties`, isi sandinya.
+   (`*.jks` dan `key.properties` tidak di-commit.)
+2. **Tiap rilis: naikkan angka setelah `+`** di `version:` pada `pubspec.yaml` (mis. `1.0.0+1` → `1.0.0+2`).
+3. `flutter build apk --release` → `build/app/outputs/flutter-apk/app-release.apk`.
+   Tanpa `android/key.properties`, APK ditandatangani kunci **debug** (jangan dibagikan). Cek sebelum membagikan
+   (`apksigner` ada di Android SDK `build-tools`; `keytool` di `Android Studio\jbr\bin`):
+   `apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk` → `DN` harus bukan `CN=Android Debug`.
 
 ### Server lokal (Laravel di laptop)
 Repo backend `D:\arulsageni-dashboard`, database MySQL Laragon `arulsageni`:

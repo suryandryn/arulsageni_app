@@ -1,0 +1,6 @@
+# Salin menjadi android/key.properties (file itu TIDAK di-commit), lalu isi.
+# storeFile relatif terhadap folder android/.
+storeFile=../arulsageni-rilis.jks
+storePassword=ISI_SANDI_KEYSTORE
+keyAlias=arulsageni
+keyPassword=ISI_SANDI_KUNCI
